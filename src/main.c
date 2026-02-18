@@ -42,12 +42,20 @@ typedef struct _calender_widget {
     int month;
 } Calendar;
 
+typedef struct _schedule_widget {
+    int day;
+    int month;
+    int year;
+} Schedule;
+
 enum _widget_tag {
-    CALENDAR
+    CALENDAR,
+    SCHEDULE,
 };
 
 union _widget_data {
     Calendar calendar;
+    Schedule schedule;
 };
 
 typedef struct _widget {
@@ -73,9 +81,13 @@ void add_widget(Window* window, Widget widget);
 
 void handle_key_press(Window** active_win, int key);
 
+void init_schedule(Widget* schedule);
+void render_schedule(Window* win, bool active);
+
 void init_calendar(Widget* calendar);
 void render_calendar(Window* win, bool active);
-char* get_month_name(int month, int* length);
+
+char* get_month_name(int month);
 int get_days_in_month(int month);
 
 int main() {
@@ -103,7 +115,13 @@ int main() {
     Widget calendar_widget;
     init_calendar(&calendar_widget);
 
+    Widget schedule_widget;
+    init_schedule(&schedule_widget);
+
+    add_widget(windows[SCHEDULE_WIN], schedule_widget);
     add_widget(windows[CALENDAR_WIN], calendar_widget);
+
+    render_schedule(windows[SCHEDULE_WIN], true);
     render_calendar(windows[CALENDAR_WIN], false);
 
     set_active_window(&active_win, windows[active_win_index]);
@@ -264,7 +282,35 @@ void handle_key_press(Window** active_win_ref, int key) {
                 // TODO: implement goto Daily Schedule for selected_day
             }
         }
+    } else if (active_win->id == SCHEDULE_WIN) {
+        switch (key) {
+            case 'l': {
+                int sched_index = get_widget_index(active_win, SCHEDULE);
+                active_win->widgets[sched_index].widget.schedule.day++;
+                debug_log("running line %d\n", __LINE__);
+                render_schedule(active_win, true);
+            }
+            case 'h': {
+                int sched_index = get_widget_index(active_win, SCHEDULE);
+                active_win->widgets[sched_index].widget.schedule.day--;
+                debug_log("running line %d\n", __LINE__);
+                render_schedule(active_win, true);
+            }
+        }
     }
+}
+
+void init_schedule(Widget* schedule) {
+    time_t raw_time = time(NULL);
+    struct tm* info = localtime(&raw_time);
+
+    Schedule sched;
+    sched.day = info->tm_mday;
+    sched.month = info->tm_mon;
+    sched.year = info->tm_year + 1900;
+
+    schedule->tag = SCHEDULE;
+    schedule->widget.schedule = sched;
 }
 
 void init_calendar(Widget* calendar) {
@@ -279,6 +325,30 @@ void init_calendar(Widget* calendar) {
     calendar->widget.calendar = cal;
 }
 
+void render_schedule(Window* win, bool active) {
+    int sched_index = get_widget_index(win, SCHEDULE);
+    Schedule schedule = win->widgets[sched_index].widget.schedule;
+
+    struct events events = get_events(schedule.year, schedule.month + 1, schedule.day);
+
+    char header[100] = "\0";
+    format_pretty_date(header, schedule.year, schedule.month, schedule.day);
+    int header_length = strlen(header);
+
+    mvwprintw(win->win, 1, (win->width - header_length) / 2, "%s", header);
+
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+        char time_str[10];
+        format_time(time_str, event.hour, event.min);
+        mvwprintw(win->win, 3 + i * 2, 3, "%s - %s", time_str, event.summary);
+    }
+
+    free(events.events);
+
+    refresh_win(win, active);
+}
+
 void render_calendar(Window* win, bool active) {
     int cal_index = get_widget_index(win, CALENDAR);
     Calendar calendar = win->widgets[cal_index].widget.calendar;
@@ -286,10 +356,9 @@ void render_calendar(Window* win, bool active) {
     time_t raw_time = time(NULL);
     struct tm* info = localtime(&raw_time);
 
-    int header_length;
-    char* month_name = get_month_name(calendar.month, &header_length);
+    char* month_name = get_month_name(calendar.month);
 
-    header_length += 5; // To account for the year
+    int header_length = strlen(month_name) + 5; // To account for the year
 
     mvwprintw(win->win, 2, (win->width - header_length) / 2, "%s %d", month_name, info->tm_year + 1900);
 
@@ -356,44 +425,25 @@ int get_days_in_month(int month) {
     };
 }
 
-char* get_month_name(int month, int* length) {
+char* get_month_name(int month) {
     switch (month) {
-        case 0:
-            *length = sizeof("January");
-            return "January";
-        case 1:
-            *length = sizeof("February");
-            return "February";
-        case 2:
-            *length = sizeof("March");
-            return "March";
-        case 3:
-            *length = sizeof("April");
-            return "April";
-        case 4:
-            *length = sizeof("May");
-            return "May";
-        case 5:
-            *length = sizeof("June");
-            return "June";
-        case 6:
-            *length = sizeof("July");
-            return "July";
-        case 7:
-            *length = sizeof("August");
-            return "August";
-        case 8:
-            *length = sizeof("September");
-            return "September";
-        case 9:
-            *length = sizeof("October");
-            return "October";
-        case 10:
-            *length = sizeof("November");
-            return "November";
-        case 11:
-            *length = sizeof("December");
-            return "December";
+        case 0: return "January";
+        case 1: return "February";
+        case 2: return "March";
+        case 3: return "April";
+        case 4: return "May";
+        case 5: return "June";
+        case 6: return "July";
+        case 7: return "August";
+        case 8: return "September";
+        case 9: return "October";
+        case 10: return "November";
+        case 11: return "December";
         default: return NULL;
     };
+}
+
+void format_pretty_date(char *buffer, int year, int month, int day) {
+    char* month_name = get_month_name(month);
+    sprintf(buffer, "%d %s %d", day, month_name, year);
 }

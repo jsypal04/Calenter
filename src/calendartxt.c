@@ -15,22 +15,41 @@
 
 struct event parse_event(char* raw_event);
 
+void format_time(char* buffer, int hour, int min) {
+    if (hour < 10 && min < 10) {
+        sprintf(buffer, "0%d:0%d", hour, min);
+    } else if (hour < 10 && min >= 10) {
+        sprintf(buffer, "0%d:%d", hour, min);
+    } else if (hour >= 10 && min < 10) {
+        sprintf(buffer, "%d:0%d", hour, min);
+    } else if (hour >= 10 && min >= 10) {
+        sprintf(buffer, "%d:%d", hour, min);
+    }
+}
+
+void format_calendartxt_date(char* buffer, int year, int month, int day) {
+    if (month >= 10 && day >= 10) {
+        sprintf(buffer, "%d-%d-%d", year, month, day);
+    } else if (month < 10 && day >= 10) {
+        sprintf(buffer, "%d-0%d-%d", year, month, day);
+    } else if (month >= 10 && day < 10) {
+        sprintf(buffer, "%d-%d-0%d", year, month, day);
+    } else if (month < 10 && day < 10) {
+        sprintf(buffer, "%d-0%d-0%d", year, month, day);
+    }
+}
+
+/**
+ * Returns the events for the given date
+ *
+ * Note: month and day are not 0 indexed
+ */
 struct events get_events(int year, int month, int day) {
     char search_str[20];
-
-    if (month >= 10 && day >= 10) {
-        sprintf(search_str, "%d-%d-%d", year, month, day);
-    } else if (month < 10 && day >= 10) {
-        sprintf(search_str, "%d-0%d-%d", year, month, day);
-    } else if (month >= 10 && day < 10) {
-        sprintf(search_str, "%d-%d-0%d", year, month, day);
-    } else if (month < 10 && day < 10) {
-        sprintf(search_str, "%d-0%d-0%d", year, month, day);
-    }
+    format_calendartxt_date(search_str, year, month, day);
 
     char* home_dir = getenv("HOME");
     if (home_dir == NULL) {
-        printf("Failed to get HOME directory.");
         exit(1);
     }
 
@@ -130,5 +149,11 @@ void append_event(struct events* events, struct event new_event) {
 void init_events(struct events* events) {
     events->length = 0;
     events->size = 10;
-    events->events = malloc(events->size * sizeof(struct event));
+    events->events = malloc(events->size * sizeof(struct event)); // Hitting an error here
 }
+
+// ERROR CASE:
+// int main() {
+//     get_events(2026, 2, 15);
+//     return 0;
+// }

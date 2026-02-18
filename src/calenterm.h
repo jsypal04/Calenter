@@ -24,4 +24,8 @@ void add_event(struct event event, int year, int month, int day);
 void init_events(struct events* events);
 void append_event(struct events* events, struct event new_event);
 
+void format_time(char* buffer, int hour, int min);
+void format_pretty_date(char* buffer, int year, int month, int day);
+void format_calendartxt_date(char* buffer, int year, int month, int day);
+
 #endif
