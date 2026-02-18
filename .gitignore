@@ -1,0 +1,9 @@
+__pycache__
+.zed/
+build/
+logs/
+config/
+
+calendar.txt
+codebook.toml
+*.ics
