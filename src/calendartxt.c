@@ -60,6 +60,7 @@ struct events get_events(int year, int month, int day) {
 
     FILE* calendar_file = fopen(calendar_path, "r");
     free(calendar_path);
+    calendar_path = NULL;
 
     char* line = NULL;
     size_t len = 0;
@@ -69,10 +70,17 @@ struct events get_events(int year, int month, int day) {
         read = getline(&line, &len, calendar_file);
     } while (strstr(line, search_str) == NULL || read < 19);
 
+    if (read < 20) {
+        // There are no events on this day.
+        struct events events = {0};
+        return events;
+    }
+
     char* trimmed_line = malloc(sizeof(char) * read);
     bzero(trimmed_line, sizeof(char) * read);
     strcpy(trimmed_line, line + 20);
     free(line);
+    line = NULL;
 
     struct events events;
     init_events(&events);
@@ -90,6 +98,7 @@ struct events get_events(int year, int month, int day) {
     }
     free(trimmed_line);
     fclose(calendar_file);
+    trimmed_line = NULL;
 
     return events;
 }
@@ -151,9 +160,3 @@ void init_events(struct events* events) {
     events->size = 10;
     events->events = malloc(events->size * sizeof(struct event)); // Hitting an error here
 }
-
-// ERROR CASE:
-// int main() {
-//     get_events(2026, 2, 15);
-//     return 0;
-// }
