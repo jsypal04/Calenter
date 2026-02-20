@@ -4,19 +4,23 @@
  * This file is a driver for interacting with calendar.txt. The
  * two main functions are get_events (for getting the event of
  * a given day) and add_event (NOT YET IMPLEMENTED).
+ *
+ * TODO: Handle ALL DAY events
  */
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "calenterm.h"
+#include "calenter.h"
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 
 struct event parse_event(char* raw_event);
 
 void format_time(char* buffer, int hour, int min) {
-    if (hour < 10 && min < 10) {
+    if (hour == -1) {
+        sprintf(buffer, "ALL DAY");
+    } else if (hour < 10 && min < 10) {
         sprintf(buffer, "0%d:0%d", hour, min);
     } else if (hour < 10 && min >= 10) {
         sprintf(buffer, "0%d:%d", hour, min);
@@ -43,6 +47,7 @@ void format_calendartxt_date(char* buffer, int year, int month, int day) {
  * Returns the events for the given date
  *
  * Note: month and day are not 0 indexed
+ * TODO: May want to validate the input to this function.
  */
 struct events get_events(int year, int month, int day) {
     char search_str[20];
@@ -109,23 +114,33 @@ struct events get_events(int year, int month, int day) {
  */
 struct event parse_event(char* raw_event) {
     struct event event = {0};
-
     int index = 0;
-    while (raw_event[index] != ':') {
-        index++;
+
+    if (strstr(raw_event, ":") != NULL) {
+        while (raw_event[index] != ':') {
+            index++;
+        }
+        char hour[3] = "\0";
+        hour[0] = raw_event[index - 2];
+        hour[1] = raw_event[index - 1];
+
+        char min[3] = "\0";
+        min[0] = raw_event[index + 1];
+        min[1] = raw_event[index + 2];
+
+        event.hour = atoi(hour);
+        event.min = atoi(min);
+
+        index += 3;
+    } else {
+        event.hour = -1;
+        event.min = -1;
+
+        while (raw_event[index] != '-') {
+            index++;
+        }
     }
-    char hour[3] = "\0";
-    hour[0] = raw_event[index - 2];
-    hour[1] = raw_event[index - 1];
 
-    char min[3] = "\0";
-    min[0] = raw_event[index + 1];
-    min[1] = raw_event[index + 2];
-
-    event.hour = atoi(hour);
-    event.min = atoi(min);
-
-    index += 3;
     while (raw_event[index] == '-' || raw_event[index] == ' ') {
         index++;
     }

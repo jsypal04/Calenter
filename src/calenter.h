@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+// for all day events, hour == min == -1
 struct event {
   int year;
   int month;
