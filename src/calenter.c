@@ -5,13 +5,6 @@
 #include <time.h>
 #include "calenter.h"
 
-#define DEBUG
-#define ACTIVE_COLOR_PAIR 1
-#define INACTIVE_COLOR_PAIR 2
-
-#define SCHEDULE_WIN 0
-#define CALENDAR_WIN 1
-#define CONTROLS_WIN 2
 
 void debug_log(const char* format, ...) {
 #ifdef DEBUG
@@ -37,43 +30,6 @@ void debug_log(const char* format, ...) {
 #endif
 }
 
-typedef struct _calender_widget {
-    int selected_day;
-    int month;
-} Calendar;
-
-typedef struct _schedule_widget {
-    int day;
-    int month;
-    int year;
-    int selected_event;
-    struct events events;
-} Schedule;
-
-enum _widget_tag {
-    CALENDAR,
-    SCHEDULE,
-};
-
-union _widget_data {
-    Calendar calendar;
-    Schedule schedule;
-};
-
-typedef struct _widget {
-    enum _widget_tag tag;
-    union _widget_data widget;
-} Widget;
-
-typedef struct _window {
-    int id;
-    WINDOW* win;
-    char* title;
-    int width;
-    int height;
-    int num_widgets;
-    Widget* widgets;
-} Window;
 
 Window* create_win(int id, char* title, int height, int width, int startx, int starty);
 void free_win(Window* window);
@@ -93,10 +49,11 @@ char* get_month_name(int month);
 int get_days_in_month(int month);
 struct tm get_day_info(int year, int month, int day);
 
+Window* windows[NUM_WINDOWS];
+
 int main() {
     debug_log("Starting UI...\n");
 
-    Window* windows[3];
     Window* active_win = NULL;
     int active_win_index = 0;
     int ch;
@@ -110,6 +67,7 @@ int main() {
 
     init_pair(ACTIVE_COLOR_PAIR, COLOR_CYAN, COLOR_BLACK);
     init_pair(INACTIVE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
+    init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, 8);
 
     windows[SCHEDULE_WIN] = create_win(SCHEDULE_WIN, "Daily Schedule", LINES - 4, 2 * COLS / 3, 0, 0);
     windows[CALENDAR_WIN] = create_win(CALENDAR_WIN, "Calendar", LINES - 4, COLS / 3, 2 * COLS / 3, 0);
@@ -298,6 +256,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                     int month = active_win->widgets[sched_index].widget.schedule.month;
                     int day = active_win->widgets[sched_index].widget.schedule.day;
 
+                    free_events(active_win->widgets[sched_index].widget.schedule.events);
                     active_win->widgets[sched_index].widget.schedule.events =
                         get_events(year, month, day);
 
@@ -315,6 +274,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                     int month = active_win->widgets[sched_index].widget.schedule.month;
                     int day = active_win->widgets[sched_index].widget.schedule.day;
 
+                    free_events(active_win->widgets[sched_index].widget.schedule.events);
                     active_win->widgets[sched_index].widget.schedule.events =
                         get_events(year, month, day);
 
@@ -339,8 +299,26 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
                 break;
             }
-            case KEY_ENTER: {
-                // TODO: implement editing/adding events
+            case 10: {
+                int sched_index = get_widget_index(active_win, SCHEDULE);
+                int length = active_win->widgets[sched_index].widget.schedule.events.length;
+                if (active_win->widgets[sched_index].widget.schedule.selected_event == length) {
+                    struct event new_event = add_event_modal(windows);
+                    if (new_event.summary != NULL) {
+                        new_event.year = active_win->widgets[sched_index].widget.schedule.year;
+                        new_event.month = active_win->widgets[sched_index].widget.schedule.month;
+                        new_event.day = active_win->widgets[sched_index].widget.schedule.day;
+
+                        add_event(new_event, new_event.year, new_event.month, new_event.day);
+
+                        free_events(active_win->widgets[sched_index].widget.schedule.events);
+                        active_win->widgets[sched_index].widget.schedule.events =
+                            get_events(new_event.year, new_event.month, new_event.day);
+
+                        render_schedule(active_win, true);
+                    }
+                }
+                break;
             }
         }
     }
@@ -373,6 +351,7 @@ void init_calendar(Widget* calendar) {
     calendar->tag = CALENDAR;
     calendar->widget.calendar = cal;
 }
+
 
 void render_schedule(Window* win, bool active) {
     werase(win->win);

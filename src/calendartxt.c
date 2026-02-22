@@ -3,11 +3,11 @@
  *
  * This file is a driver for interacting with calendar.txt. The
  * two main functions are get_events (for getting the event of
- * a given day) and add_event (NOT YET IMPLEMENTED).
+ * a given day).
  *
- * TODO: Handle ALL DAY events
  */
 
+#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,33 +15,14 @@
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 
+/*
+ * Parses the string event from calendar.txt into a `struct event`
+ * This function allocates memory for the event.
+ */
 struct event parse_event(char* raw_event);
 
-void format_time(char* buffer, int hour, int min) {
-    if (hour == -1) {
-        sprintf(buffer, "ALL DAY");
-    } else if (hour < 10 && min < 10) {
-        sprintf(buffer, "0%d:0%d", hour, min);
-    } else if (hour < 10 && min >= 10) {
-        sprintf(buffer, "0%d:%d", hour, min);
-    } else if (hour >= 10 && min < 10) {
-        sprintf(buffer, "%d:0%d", hour, min);
-    } else if (hour >= 10 && min >= 10) {
-        sprintf(buffer, "%d:%d", hour, min);
-    }
-}
-
-void format_calendartxt_date(char* buffer, int year, int month, int day) {
-    if (month >= 10 && day >= 10) {
-        sprintf(buffer, "%d-%d-%d", year, month, day);
-    } else if (month < 10 && day >= 10) {
-        sprintf(buffer, "%d-0%d-%d", year, month, day);
-    } else if (month >= 10 && day < 10) {
-        sprintf(buffer, "%d-%d-0%d", year, month, day);
-    } else if (month < 10 && day < 10) {
-        sprintf(buffer, "%d-0%d-0%d", year, month, day);
-    }
-}
+char* get_calendar_path();
+char* stringify_events(struct events events);
 
 /**
  * Returns the events for the given date
@@ -53,15 +34,7 @@ struct events get_events(int year, int month, int day) {
     char search_str[20];
     format_calendartxt_date(search_str, year, month, day);
 
-    char* home_dir = getenv("HOME");
-    if (home_dir == NULL) {
-        exit(1);
-    }
-
-    int length = strlen(home_dir) + strlen(CALENDAR_TXT);
-    char* calendar_path = malloc(sizeof(char) * length);
-    strcpy(calendar_path, home_dir);
-    strcat(calendar_path, CALENDAR_TXT);
+    char* calendar_path = get_calendar_path();
 
     FILE* calendar_file = fopen(calendar_path, "r");
     free(calendar_path);
@@ -77,7 +50,8 @@ struct events get_events(int year, int month, int day) {
 
     if (read < 20) {
         // There are no events on this day.
-        struct events events = {0};
+        struct events events;
+        init_events(&events);
         return events;
     }
 
@@ -108,10 +82,6 @@ struct events get_events(int year, int month, int day) {
     return events;
 }
 
-/*
- * Parses the string event from calendar.txt into a `struct event`
- * This function allocates memory for the event.
- */
 struct event parse_event(char* raw_event) {
     struct event event = {0};
     int index = 0;
@@ -145,8 +115,116 @@ struct event parse_event(char* raw_event) {
         index++;
     }
 
+    if (raw_event[strlen(raw_event) - 1] == '\n') {
+        raw_event[strlen(raw_event) - 1] = '\0';
+    }
+
     event.summary = strdup(raw_event + index);
     return event;
+}
+
+void add_event(struct event event, int year, int month, int day) {
+    struct events events = get_events(year, month, day);
+    insert_event(&events, event);
+
+    char search_str[20] = "\0";
+    format_calendartxt_date(search_str, year, month, day);
+
+    char* calendar_path = get_calendar_path();
+    FILE* calendar_file = fopen(calendar_path, "r");
+    FILE* tmp = fopen("tmp.txt", "w");
+
+    char* line = NULL;
+    size_t len;
+    int read;
+
+    char* str_events = stringify_events(events);
+
+    do {
+        read = getline(&line, &len, calendar_file);
+        if (strstr(line, search_str) != NULL) {
+            char header[30] = "\0";
+            for (int i = 0; i < 18; i++) {
+                header[i] = line[i];
+            }
+
+            fprintf(tmp, "%s  %s\n", header, str_events);
+
+        } else {
+            fprintf(tmp, "%s", line);
+        }
+    } while (read >= 0);
+
+    fclose(calendar_file);
+    fclose(tmp);
+    remove(calendar_path);
+    rename("tmp.txt", calendar_path);
+
+    free(line);
+    free(calendar_path);
+    free(str_events);
+
+    line = NULL;
+    calendar_path = NULL;
+    str_events = NULL;
+
+    free_events(events);
+}
+
+char* stringify_events(struct events events) {
+    int length = 100;
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+
+        // Space for the time
+        if (event.hour == -1) {
+            length += 7;
+        } else {
+            length += 5;
+        }
+
+        // space for the hyphen
+        length += 3;
+        length += strlen(event.summary);
+    }
+
+    char* str_events = malloc(length * sizeof(char));
+    memset(str_events, 0, length * sizeof(char));
+
+    int write_index = 0;
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+
+        if (write_index >= length) {
+            return str_events;
+        }
+        char time[10];
+        format_time(time, event.hour, event.min);
+        if (i < events.length - 1) {
+            sprintf(str_events + write_index, "%s - %s,", time, event.summary);
+        } else {
+            sprintf(str_events + write_index, "%s - %s", time, event.summary);
+        }
+        write_index = strlen(str_events);
+    }
+
+    return str_events;
+
+}
+
+void insert_event(struct events* events, struct event new_event) {
+    append_event(events, new_event);
+
+    int index = events->length - 1;
+    while (
+        index > 0 &&
+        time_cmp(new_event.hour, new_event.min, events->events[index - 1].hour, events->events[index - 1].min) < 0
+    ) {
+        struct event tmp = events->events[index - 1];
+        events->events[index - 1] = events->events[index];
+        events->events[index] = tmp;
+        index--;
+    }
 }
 
 void append_event(struct events* events, struct event new_event) {
@@ -173,5 +251,81 @@ void append_event(struct events* events, struct event new_event) {
 void init_events(struct events* events) {
     events->length = 0;
     events->size = 10;
-    events->events = malloc(events->size * sizeof(struct event)); // Hitting an error here
+    events->events = malloc(events->size * sizeof(struct event));
 }
+
+void free_events(struct events events) {
+    for (int i = 0; i < events.length; i++) {
+        free(events.events[i].summary);
+    }
+    free(events.events);
+}
+
+int time_cmp(int hour1, int min1, int hour2, int min2) {
+    if (hour1 < hour2) {
+        return -1;
+    } else if (hour1 > hour2) {
+        return 1;
+    }
+
+    if (min1 < min2) {
+        return -1;
+    } else if (min1 > min2) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void format_time(char* buffer, int hour, int min) {
+    if (hour == -1) {
+        sprintf(buffer, "ALL DAY");
+    } else if (hour < 10 && min < 10) {
+        sprintf(buffer, "0%d:0%d", hour, min);
+    } else if (hour < 10 && min >= 10) {
+        sprintf(buffer, "0%d:%d", hour, min);
+    } else if (hour >= 10 && min < 10) {
+        sprintf(buffer, "%d:0%d", hour, min);
+    } else if (hour >= 10 && min >= 10) {
+        sprintf(buffer, "%d:%d", hour, min);
+    }
+}
+
+void format_calendartxt_date(char* buffer, int year, int month, int day) {
+    if (month >= 10 && day >= 10) {
+        sprintf(buffer, "%d-%d-%d", year, month, day);
+    } else if (month < 10 && day >= 10) {
+        sprintf(buffer, "%d-0%d-%d", year, month, day);
+    } else if (month >= 10 && day < 10) {
+        sprintf(buffer, "%d-%d-0%d", year, month, day);
+    } else if (month < 10 && day < 10) {
+        sprintf(buffer, "%d-0%d-0%d", year, month, day);
+    }
+}
+
+char* get_calendar_path() {
+    char* home_dir = getenv("HOME");
+    if (home_dir == NULL) {
+        exit(1);
+    }
+
+    int length = strlen(home_dir) + strlen(CALENDAR_TXT) + 100;
+    char* calendar_path = malloc(sizeof(char) * length);
+    memset(calendar_path, 0, sizeof(char) * length);
+    strcpy(calendar_path, home_dir);
+    strcat(calendar_path, CALENDAR_TXT);
+
+    return calendar_path;
+}
+
+// int main() {
+//     struct event new_event;
+//     new_event.year = 2026;
+//     new_event.month = 2;
+//     new_event.day = 20;
+//     new_event.hour = 6;
+//     new_event.min = 36;
+//     new_event.summary = strdup("Test event");
+
+//     add_event(new_event, 2026, 2, 20);
+// }
