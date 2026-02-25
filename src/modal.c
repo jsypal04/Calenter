@@ -33,7 +33,6 @@ struct event add_event_modal(Window** windows, struct event* event) {
 
     WINDOW* modal = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
     keypad(modal, true);
-    werase(modal);
     box(modal, 0, 0);
     mvwprintw(modal, 0, 1, " Add Event ");
 
@@ -64,10 +63,10 @@ struct event add_event_modal(Window** windows, struct event* event) {
     render_input_fields(modal, &inputs);
     wrefresh(modal);
 
-    int ch = getch();
+    int ch = wgetch(modal);
     while (ch != 10 && ch != 27) {
         switch (ch) {
-            case 127: {
+            case KEY_BACKSPACE: {
                 delete_byte(&inputs);
                 render_input_fields(modal, &inputs);
                 break;
@@ -82,7 +81,7 @@ struct event add_event_modal(Window** windows, struct event* event) {
             }
         }
 
-        ch = getch();
+        ch = wgetch(modal);
     }
 
     struct event new_event = {0};
@@ -94,6 +93,7 @@ struct event add_event_modal(Window** windows, struct event* event) {
     }
 
     werase(modal);
+    wrefresh(modal);
     delwin(modal);
 
     for (int i = 0; i < NUM_WINDOWS; i++) {

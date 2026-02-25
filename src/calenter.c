@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ncurses.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -59,6 +60,7 @@ int main() {
     int ch;
 
     initscr();
+    set_escdelay(25);
     curs_set(0);
     clear();
     noecho();
@@ -239,8 +241,23 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
                 break;
             }
-            case KEY_ENTER: {
-                // TODO: implement goto Daily Schedule for selected_day
+            case 10: {
+                int cal_index = get_widget_index(active_win, CALENDAR);
+                int sched_index = get_widget_index(windows[SCHEDULE_WIN], SCHEDULE);
+
+                int month = active_win->widgets[cal_index].widget.calendar.month;
+                int day = active_win->widgets[cal_index].widget.calendar.selected_day;
+
+                windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule.month = month;
+                windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule.day = day;
+
+                int year = windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule.year;
+
+                free_events(windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule.events);
+                windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule.events =
+                    get_events(year, month, day);
+
+                render_schedule(windows[SCHEDULE_WIN], false);
             }
         }
     } else if (active_win->id == SCHEDULE_WIN) {
@@ -330,7 +347,9 @@ void handle_key_press(Window** active_win_ref, int key) {
                 } else {
                     new_event = add_event_modal(windows,
                         active_win->widgets[sched_index].widget.schedule.events.events + cur_selection);
-                    delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
+                    if (new_event.summary != NULL) {
+                        delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
+                    }
                 }
 
                 if (new_event.summary != NULL) {
@@ -442,6 +461,8 @@ void render_calendar(Window* win, bool active) {
     int week_number = 1;
     for (int day = 1; day <= days_in_month; day++) {
         struct tm my_time = get_day_info(info->tm_year + 1900, info->tm_mon + 1, day);
+
+        assert(day <= 31);
 
         char day_str[3];
         if (day < 10) {
