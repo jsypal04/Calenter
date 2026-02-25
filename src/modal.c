@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <ncurses.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "calenter.h"
@@ -25,7 +27,7 @@ void set_byte(Inputs* inputs, char ch);
 void delete_byte(Inputs* inputs);
 void render_input_fields(WINDOW* win, Inputs* inputs);
 
-struct event add_event_modal(Window** windows) {
+struct event add_event_modal(Window** windows, struct event* event) {
     int height = 3 * LINES / 4;
     int width = COLS / 2;
 
@@ -38,8 +40,26 @@ struct event add_event_modal(Window** windows) {
     Inputs inputs = {0};
     inputs.active_input = HOUR;
     inputs.summary_win = derwin(modal, 10, width - 6, 7, 3);
-    strcpy(inputs.hour, "  ");
-    strcpy(inputs.min, "  ");
+
+    if (event != NULL) {
+        assert(event->hour < 24);
+        assert(event->min < 60);
+        assert(strlen(event->summary) < 2000);
+
+        char* hour_fmt_str = (event->hour < 10) ? "0%d" : "%d";
+        char* min_fmt_str = (event->min < 10) ? "0%d" : "%d";
+
+        sprintf(inputs.hour, hour_fmt_str, event->hour);
+        sprintf(inputs.min, min_fmt_str, event->min);
+        sprintf(inputs.summary, "%s", event->summary);
+
+        inputs.hour_index = strlen(inputs.hour);
+        inputs.min_index = strlen(inputs.min);
+        inputs.summary_index = strlen(inputs.summary);
+    } else {
+        strcpy(inputs.hour, "  ");
+        strcpy(inputs.min, "  ");
+    }
 
     render_input_fields(modal, &inputs);
     wrefresh(modal);

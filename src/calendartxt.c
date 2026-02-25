@@ -22,6 +22,8 @@
 struct event parse_event(char* raw_event);
 
 char* get_calendar_path();
+int write_events(struct events events, int year, int month, int day);
+int remove_event(struct events* events, struct event event);
 char* stringify_events(struct events events);
 
 /**
@@ -123,16 +125,33 @@ struct event parse_event(char* raw_event) {
     return event;
 }
 
-void add_event(struct event event, int year, int month, int day) {
+int delete_event(struct event event) {
+    struct events events = get_events(event.year, event.month, event.day);
+
+    remove_event(&events, event);
+    if (write_events(events, event.year, event.month, event.day) != 0) return -1;
+
+    return 0;
+}
+
+int add_event(struct event event, int year, int month, int day) {
     struct events events = get_events(year, month, day);
     insert_event(&events, event);
 
+    if (write_events(events, year, month, day) != 0) return -1;
+
+    return 0;
+}
+
+int write_events(struct events events, int year, int month, int day) {
     char search_str[20] = "\0";
     format_calendartxt_date(search_str, year, month, day);
 
     char* calendar_path = get_calendar_path();
     FILE* calendar_file = fopen(calendar_path, "r");
     FILE* tmp = fopen("tmp.txt", "w");
+
+    if (calendar_file == NULL || tmp == NULL) return -1;
 
     char* line = NULL;
     size_t len;
@@ -169,6 +188,8 @@ void add_event(struct event event, int year, int month, int day) {
     str_events = NULL;
 
     free_events(events);
+
+    return 0;
 }
 
 char* stringify_events(struct events events) {
@@ -210,6 +231,34 @@ char* stringify_events(struct events events) {
 
     return str_events;
 
+}
+
+int find_event(struct events* events, struct event event) {
+    for (int i = 0; i < events->length; i++) {
+        struct event cur_event = events->events[i];
+
+        if (cur_event.year != event.year) continue;
+        if (cur_event.month != event.month) continue;
+        if (cur_event.day != event.day) continue;
+        if (cur_event.hour != event.hour) continue;
+        if (cur_event.min != event.min) continue;
+        if (strcmp(cur_event.summary, event.summary) != 0) continue;
+
+        return i;
+    }
+    return -1;
+}
+
+int remove_event(struct events* events, struct event event) {
+    int index = find_event(events, event);
+    if (index < 0) return index;
+
+    events->length--;
+    for (int i = index; i < events->length; i++) {
+        events->events[i] = events->events[i + 1];
+    }
+
+    return 0;
 }
 
 void insert_event(struct events* events, struct event new_event) {
@@ -322,10 +371,10 @@ char* get_calendar_path() {
 //     struct event new_event;
 //     new_event.year = 2026;
 //     new_event.month = 2;
-//     new_event.day = 20;
-//     new_event.hour = 6;
+//     new_event.day = 24;
+//     new_event.hour = 12;
 //     new_event.min = 36;
-//     new_event.summary = strdup("Test event");
+//     new_event.summary = strdup("Be cool.");
 
-//     add_event(new_event, 2026, 2, 20);
+//     delete_event(new_event);
 // }

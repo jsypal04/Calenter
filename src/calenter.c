@@ -197,7 +197,7 @@ int get_widget_index(Window* window, enum _widget_tag tag) {
         }
     }
     debug_log("Widget %d not found.\n", tag);
-    return -1;
+    exit(1);
 }
 
 void handle_key_press(Window** active_win_ref, int key) {
@@ -299,24 +299,52 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
                 break;
             }
+            case 'd': {
+                int sched_index = get_widget_index(active_win, SCHEDULE);
+                int length = active_win->widgets[sched_index].widget.schedule.events.length;
+                int cur_selection = active_win->widgets[sched_index].widget.schedule.selected_event;
+
+                int year = active_win->widgets[sched_index].widget.schedule.year;
+                int month = active_win->widgets[sched_index].widget.schedule.month;
+                int day = active_win->widgets[sched_index].widget.schedule.day;
+
+                if (cur_selection == length) break;
+
+                delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
+
+                free_events(active_win->widgets[sched_index].widget.schedule.events);
+                active_win->widgets[sched_index].widget.schedule.events =
+                    get_events(year, month, day);
+
+                render_schedule(active_win, true);
+                break;
+            }
             case 10: {
                 int sched_index = get_widget_index(active_win, SCHEDULE);
                 int length = active_win->widgets[sched_index].widget.schedule.events.length;
-                if (active_win->widgets[sched_index].widget.schedule.selected_event == length) {
-                    struct event new_event = add_event_modal(windows);
-                    if (new_event.summary != NULL) {
-                        new_event.year = active_win->widgets[sched_index].widget.schedule.year;
-                        new_event.month = active_win->widgets[sched_index].widget.schedule.month;
-                        new_event.day = active_win->widgets[sched_index].widget.schedule.day;
+                int cur_selection = active_win->widgets[sched_index].widget.schedule.selected_event;
 
-                        add_event(new_event, new_event.year, new_event.month, new_event.day);
+                struct event new_event;
+                if (cur_selection == length) {
+                    new_event = add_event_modal(windows, NULL);
+                } else {
+                    new_event = add_event_modal(windows,
+                        active_win->widgets[sched_index].widget.schedule.events.events + cur_selection);
+                    delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
+                }
 
-                        free_events(active_win->widgets[sched_index].widget.schedule.events);
-                        active_win->widgets[sched_index].widget.schedule.events =
-                            get_events(new_event.year, new_event.month, new_event.day);
+                if (new_event.summary != NULL) {
+                    new_event.year = active_win->widgets[sched_index].widget.schedule.year;
+                    new_event.month = active_win->widgets[sched_index].widget.schedule.month;
+                    new_event.day = active_win->widgets[sched_index].widget.schedule.day;
 
-                        render_schedule(active_win, true);
-                    }
+                    add_event(new_event, new_event.year, new_event.month, new_event.day);
+
+                    free_events(active_win->widgets[sched_index].widget.schedule.events);
+                    active_win->widgets[sched_index].widget.schedule.events =
+                        get_events(new_event.year, new_event.month, new_event.day);
+
+                    render_schedule(active_win, true);
                 }
                 break;
             }
@@ -415,7 +443,6 @@ void render_calendar(Window* win, bool active) {
     for (int day = 1; day <= days_in_month; day++) {
         struct tm my_time = get_day_info(info->tm_year + 1900, info->tm_mon + 1, day);
 
-        int insertion_index = my_time.tm_wday * 3;
         char day_str[3];
         if (day < 10) {
             sprintf(day_str, "0%d", day);

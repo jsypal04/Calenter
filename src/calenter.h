@@ -75,14 +75,25 @@ typedef struct _window {
 struct events get_events(int year, int month, int day);
 
 /*
- * Writes the event to calendar.txt
+ * Writes the event to calendar.txt. Returns 0 on success, -1 on failure.
  */
-void add_event(struct event event, int year, int month, int day);
+int add_event(struct event event, int year, int month, int day);
+
+/*
+ * Deletes an event from calendar.txt. Returns 0 on success, -1 on failure.
+ */
+int delete_event(struct event event);
 
 /*
  * Inializes an empty events array with initial size of 10
  */
 void init_events(struct events* events);
+
+
+/*
+ * Returns the index of the first occurence of event in events. Returns -1 if not found.
+ */
+int find_event(struct events* events, struct event event);
 
 /*
  * Adds the event to the end of the events array
@@ -134,6 +145,6 @@ void debug_log(const char* format, ...);
 
 void refresh_win(Window* window, bool active);
 
-struct event add_event_modal(Window** windows);
+struct event add_event_modal(Window** windows, struct event* event);
 
 #endif
