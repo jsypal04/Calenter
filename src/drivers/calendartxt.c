@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "calenter.h"
+#include "calendartxt.h"
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 

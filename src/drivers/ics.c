@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "calenter.h"
+#include "calendartxt.h"
 
 #define INIT_EVENTS_SIZE 500
 

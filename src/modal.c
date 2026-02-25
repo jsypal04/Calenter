@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "calenter.h"
+#include "drivers/calendartxt.h"
 
 enum active_input {
     HOUR,
