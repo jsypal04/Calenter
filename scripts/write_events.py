@@ -1,19 +1,22 @@
 #!/usr/bin/python3
-'''
+"""
 Writes events parsed from a .ics file to calendar.txt
-'''
+"""
 
-from datetime import date, datetime
-import sys
 import os
 import re
+import sys
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
+
 from parse_ics import parse_ics
 
 HOME_DIR = os.environ["HOME"]
 CALENDAR_PATH = f"{HOME_DIR}/.calendar/calendar.txt"
 
+
 def write_events(events):
-    with open(CALENDAR_PATH, 'r') as calendar_txt:
+    with open(CALENDAR_PATH, "r") as calendar_txt:
         calendar = calendar_txt.readlines()
 
     for id in events:
@@ -31,18 +34,25 @@ def write_events(events):
         minute = None
 
         if "T" in start:
-            time = start[start.find("T") + 1:-1]
+            time = start[start.find("T") + 1 : -1]
             hour = time[0:2]
             minute = time[2:4]
 
             # Time is in UTC timezone (Greenwich) need to convert to NYC
-            if "Z" in start and int(hour) >= 5:
-                hour = str((int(hour) - 5) % 24)
-            elif "Z" in start and int(hour) < 5:
-                hour = str((int(hour) - 5) % 24)
-                day = int(day) - 1
+            if "Z" in start:
+                dt = datetime(int(year), int(month), int(day), int(hour), int(minute), tzinfo=timezone.utc)
+                nyc_tz = ZoneInfo("America/New_York")
+                nyc_dt = dt.astimezone(nyc_tz)
 
-        pattern = fr"{year}-{month}-{day}"
+
+                year, month, day, hour = (
+                    nyc_dt.strftime("%Y"),
+                    nyc_dt.strftime("%m"),
+                    nyc_dt.strftime("%d"),
+                    nyc_dt.strftime("%H")
+                )
+
+        pattern = rf"{year}-{month}-{day}"
         matches = [(i, s) for i, s in enumerate(calendar) if re.search(pattern, s)]
 
         assert len(matches) <= 2 and len(matches) > 0
@@ -52,7 +62,7 @@ def write_events(events):
 
         calendar[match[0]] = updated_match
 
-    with open(CALENDAR_PATH, 'w') as calendar_txt:
+    with open(CALENDAR_PATH, "w") as calendar_txt:
         calendar_txt.writelines(calendar)
 
 
@@ -66,31 +76,39 @@ def handle_repeate_rule(event, calendar):
 
     match event["RRULE"]["FREQ"]:
         case "YEARLY":
-            pattern = fr"-{month}-{day}"
+            pattern = rf"-{month}-{day}"
             matches = [(i, s) for i, s in enumerate(calendar) if re.search(pattern, s)]
         case "WEEKLY":
-            print(event["RRULE"])
+            # print(event["RRULE"])
             repeat_days = event["RRULE"].get("BYDAY")
 
             repeat_days_pattern = None
             if repeat_days is None:
-                repeat_days_pattern = map_weekday(date(int(year), int(month), int(day)).weekday())
+                repeat_days_pattern = map_weekday(
+                    date(int(year), int(month), int(day)).weekday()
+                )
             else:
-                repeat_days_pattern = "|".join(list(map(lambda d: f"({map_weekday(d)})", repeat_days.split(","))))
+                repeat_days_pattern = "|".join(
+                    list(map(lambda d: f"({map_weekday(d)})", repeat_days.split(",")))
+                )
 
-            pattern = fr'{repeat_days_pattern}'
-            prelim_matches = [(i, s) for i, s in enumerate(calendar) if re.search(pattern, s)]
+            pattern = rf"{repeat_days_pattern}"
+            prelim_matches = [
+                (i, s) for i, s in enumerate(calendar) if re.search(pattern, s)
+            ]
 
             matches = []
             for match in prelim_matches:
                 dstart = datetime(int(year), int(month), int(day))
-                dmatch = datetime(int(match[1][0:4]), int(match[1][5:7]), int(match[1][8:10]))
+                dmatch = datetime(
+                    int(match[1][0:4]), int(match[1][5:7]), int(match[1][8:10])
+                )
 
                 if "UNTIL" in event["RRULE"].keys():
                     dend = datetime(
                         int(event["RRULE"]["UNTIL"][0:4]),
                         int(event["RRULE"]["UNTIL"][4:6]),
-                        int(event["RRULE"]["UNTIL"][6:8])
+                        int(event["RRULE"]["UNTIL"][6:8]),
                     )
 
                     if dstart <= dmatch <= dend:
@@ -108,16 +126,23 @@ def handle_repeate_rule(event, calendar):
     minute = None
 
     if "T" in start:
-        time = start[start.find("T") + 1:-1]
+        time = start[start.find("T") + 1 : -1]
         hour = time[0:2]
         minute = time[2:4]
 
         # Time is in UTC timezone (Greenwich) need to convert to NYC
-        if "Z" in start and int(hour) >= 5:
-            hour = str((int(hour) - 5) % 24)
-        elif "Z" in start and int(hour) < 5:
-            hour = str((int(hour) - 5) % 24)
-            day = int(day) - 1
+        if "Z" in start:
+            dt = datetime(int(year), int(month), int(day), int(hour), int(minute), tzinfo=timezone.utc)
+            nyc_tz = ZoneInfo("America/New_York")
+            nyc_dt = dt.astimezone(nyc_tz)
+
+
+            year, month, day, hour = (
+                nyc_dt.strftime("%Y"),
+                nyc_dt.strftime("%m"),
+                nyc_dt.strftime("%d"),
+                nyc_dt.strftime("%H")
+            )
 
     for match in matches:
         if len(match[1][0:18].strip()) < 18:
@@ -129,19 +154,21 @@ def handle_repeate_rule(event, calendar):
 def add_event(date, hour, minute, summary):
     date_prefix = date[0:18]
     days_events = list(
-        filter(
-            lambda e: len(e) > 0,
-            map(lambda e: e.strip(), date[18:].split(","))
-        )
+        filter(lambda e: len(e) > 0, map(lambda e: e.strip(), date[18:].split(",")))
     )
+
+    if "," in summary:
+        summary = summary.replace(",", " ")
 
     if hour is None or minute is None:
         new_event = f"ALL DAY - {summary}"
         for e in days_events:
             hyphen_index = e.find("-")
-            if e[hyphen_index + 1:].strip().lower() == summary.strip().lower():
-                print(f"Cannot add event {new_event}. There is another ALL DAY event with the same summary.")
-                return date_prefix + '  ' + ','.join(days_events) + '\n'
+            if e[hyphen_index + 1 :].strip().lower() == summary.strip().lower():
+                # print(
+                #     f"Cannot add event {new_event}. There is another ALL DAY event with the same summary."
+                # )
+                return date_prefix + "  " + ",".join(days_events) + "\n"
         days_events.insert(0, new_event)
 
     else:
@@ -157,8 +184,10 @@ def add_event(date, hour, minute, summary):
                 if compare_time((int(hour), int(minute)), e_time) == 1:
                     continue
                 elif compare_time((int(hour), int(minute)), e_time) == 0:
-                    print(f"Cannot add event {new_event}. There is another event at this time.")
-                    return date_prefix + '  ' + ','.join(days_events) + '\n'
+                    # print(
+                    #     f"Cannot add event {new_event}. There is another event at this time."
+                    # )
+                    return date_prefix + "  " + ",".join(days_events) + "\n"
 
                 insertion_index = i
                 break
@@ -168,7 +197,8 @@ def add_event(date, hour, minute, summary):
             else:
                 days_events.append(new_event)
 
-    return date_prefix + '  ' + ','.join(days_events) + '\n'
+    return date_prefix + "  " + ",".join(days_events) + "\n"
+
 
 def map_weekday(weekday):
     if type(weekday) is int:
@@ -199,7 +229,7 @@ def map_weekday(weekday):
             return "Thu"
         case "FR":
             return "Fri"
-        case "SA": # May not be the right one for saturday
+        case "SA":  # May not be the right one for saturday
             return "Sat"
         case "SU":
             return "Sun"
@@ -216,12 +246,12 @@ def extract_time(calendar_event: str) -> tuple[int, int]:
 
 
 def compare_time(time1, time2):
-    '''
+    """
     Returns 0 if they are the same time, 1 if time 1 is later,
     and 2 if time 2 is later
 
     The times are the following format: (hour, minute)
-    '''
+    """
 
     if time1[0] > time2[0]:
         return 1
