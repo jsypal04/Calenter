@@ -50,13 +50,13 @@ int main() {
     cbreak();
     start_color();
 
-    init_pair(ACTIVE_COLOR_PAIR, COLOR_CYAN, COLOR_BLACK);
+    init_pair(ACTIVE_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK);
     init_pair(INACTIVE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
     init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, 8);
     init_pair(CONTROLS_COLOR_PAIR, COLOR_BLUE, COLOR_BLACK);
 
     // Focusable windows
-    windows[SCHEDULE_WIN] = create_win(SCHEDULE_WIN, "Daily Schedule", LINES - 4, 2 * COLS / 3, 0, 0);
+    windows[SCHEDULE_WIN] = create_win(SCHEDULE_WIN, "Daily Schedule", LINES - 4, 2 * COLS / 3 - 1, 1, 0);
     windows[CALENDAR_WIN] = create_win(CALENDAR_WIN, "Calendar", LINES - 4, COLS / 3, 2 * COLS / 3, 0);
 
     // Non-focusable windows
