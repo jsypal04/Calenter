@@ -9,12 +9,14 @@
 #define ACTIVE_COLOR_PAIR 1
 #define INACTIVE_COLOR_PAIR 2
 #define INPUT_FIELD_PAIR 3
+#define CONTROLS_COLOR_PAIR 4
 
 #define SCHEDULE_WIN 0
 #define CALENDAR_WIN 1
 #define CONTROLS_WIN 2
 
 #define NUM_WINDOWS 3
+#define NUM_FOCUSABLE_WINDOWS 2
 
 
 typedef struct _calender_widget {
@@ -70,6 +72,9 @@ void debug_log(const char* format, ...);
 void add_widget(Window* window, Widget widget);
 int get_widget_index(Window* window, enum _widget_tag tag);
 
+/*
+ * Creates a window. Pass a NULL title for no title
+ * */
 Window* create_win(int id, char* title, int height, int width, int startx, int starty);
 void free_win(Window* window);
 void refresh_win(Window* window, bool active);

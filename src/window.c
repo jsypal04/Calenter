@@ -1,13 +1,17 @@
+#include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
 #include "calenter.h"
 
+extern Window* windows[NUM_WINDOWS];
+
+void refresh_controls(int win_id);
 
 Window* create_win(int id, char* title, int height, int width, int startx, int starty) {
     Window* window = malloc(sizeof(Window));
 
     window->id = id;
-    window->title = strdup(title);
+    window->title = title == NULL ? NULL : strdup(title);
     window->width = width;
     window->height = height;
     window->widgets = NULL;
@@ -30,6 +34,11 @@ void free_win(Window* window) {
 }
 
 void refresh_win(Window* window, bool active) {
+    if (window->title == NULL) {
+        wrefresh(window->win);
+        return;
+    }
+
     if (active) {
         wattron(window->win, COLOR_PAIR(ACTIVE_COLOR_PAIR));
         box(window->win, 0, 0);
@@ -51,4 +60,15 @@ void set_active_window(Window** active_win, Window* window) {
     *active_win = window;
     wattron(window->win, COLOR_PAIR(ACTIVE_COLOR_PAIR));
     refresh_win(window, true);
+
+    // Render controls
+    refresh_controls(window->id);
+}
+
+void refresh_controls(int win_id) {
+    // Common controls
+    wattron(windows[CONTROLS_WIN]->win, COLOR_PAIR(CONTROLS_COLOR_PAIR));
+    mvwprintw(windows[CONTROLS_WIN]->win, 1, 1, "h,j,k,l  Nav | s  Sync");
+    wattroff(windows[CONTROLS_WIN]->win, COLOR_PAIR(CONTROLS_COLOR_PAIR));
+    refresh_win(windows[CONTROLS_WIN], false);
 }

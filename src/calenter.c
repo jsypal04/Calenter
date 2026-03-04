@@ -53,10 +53,14 @@ int main() {
     init_pair(ACTIVE_COLOR_PAIR, COLOR_CYAN, COLOR_BLACK);
     init_pair(INACTIVE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
     init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, 8);
+    init_pair(CONTROLS_COLOR_PAIR, COLOR_BLUE, COLOR_BLACK);
 
+    // Focusable windows
     windows[SCHEDULE_WIN] = create_win(SCHEDULE_WIN, "Daily Schedule", LINES - 4, 2 * COLS / 3, 0, 0);
     windows[CALENDAR_WIN] = create_win(CALENDAR_WIN, "Calendar", LINES - 4, COLS / 3, 2 * COLS / 3, 0);
-    windows[CONTROLS_WIN] = create_win(CONTROLS_WIN, "Commands", 4, COLS, 0, LINES - 4);
+
+    // Non-focusable windows
+    windows[CONTROLS_WIN] = create_win(CONTROLS_WIN, NULL, 4, COLS, 0, LINES - 4);
 
     Widget calendar_widget;
     init_calendar(&calendar_widget);
@@ -77,8 +81,7 @@ int main() {
 
         switch (ch) {
             case '\t': {
-                int windows_len = sizeof(windows) / sizeof(Window*);
-                if (active_win_index == windows_len - 1) {
+                if (active_win_index == NUM_FOCUSABLE_WINDOWS - 1) {
                     active_win_index = 0;
                 } else {
                     active_win_index++;
