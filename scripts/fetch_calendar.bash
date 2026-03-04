@@ -10,7 +10,7 @@ mkdir $CALENDAR_DIR/downloads
 result=1
 duration=$(($(date +%s) - $start))
 while [ $duration -le $timeout ]; do
-    curl -o $CALENDAR_DIR/downloads/gcal.ics $ICS_URL
+    curl -o $CALENDAR_DIR/downloads/gcal.ics $1
     if [ $? -eq 0 ]; then
         result=0
         break

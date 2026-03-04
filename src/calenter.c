@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "calenter.h"
+#include "drivers/sync.h"
 
 
 void debug_log(const char* format, ...) {
@@ -75,23 +76,26 @@ int main() {
         ch = wgetch(active_win->win);
 
         switch (ch) {
-        case '\t': {
-            int windows_len = sizeof(windows) / sizeof(Window*);
-            if (active_win_index == windows_len - 1) {
-                active_win_index = 0;
-            } else {
-                active_win_index++;
+            case '\t': {
+                int windows_len = sizeof(windows) / sizeof(Window*);
+                if (active_win_index == windows_len - 1) {
+                    active_win_index = 0;
+                } else {
+                    active_win_index++;
+                }
+                set_active_window(&active_win, windows[active_win_index]);
+                break;
             }
-            set_active_window(&active_win, windows[active_win_index]);
-            break;
-        }
-        case ERR:
-            debug_log("Received %d from wgetch\n", ch);
-            free_win(windows[0]);
-            free_win(windows[1]);
-            endwin();
-            exit(1);
-        default: handle_key_press(&active_win, ch);
+            case 's':
+                sync_calendar();
+                break;
+            case ERR:
+                debug_log("Received %d from wgetch\n", ch);
+                free_win(windows[0]);
+                free_win(windows[1]);
+                endwin();
+                exit(1);
+            default: handle_key_press(&active_win, ch);
         };
 
         if (ch == 'q') {
