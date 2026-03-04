@@ -1,7 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define CONFIG_PATH "/.config/calenter/config"
+#define CONFIG_DIR "/.config/calenter/"
+#define CONFIG_FILE "config"
 
 
 typedef struct _config {
