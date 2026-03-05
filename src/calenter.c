@@ -120,36 +120,44 @@ void handle_key_press(Window** active_win_ref, int key) {
         switch (key) {
             case 'l': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
-                int days_in_month = get_days_in_month(active_win->widgets[cal_index].widget.calendar.month);
-                if (active_win->widgets[cal_index].widget.calendar.selected_day != days_in_month) {
-                    active_win->widgets[cal_index].widget.calendar.selected_day++;
-                    render_calendar(active_win, true);
-                }
+                move_widget_date(&active_win->widgets[cal_index], 0, 0, 1);
+                werase(active_win->win);
+                render_calendar(active_win, true);
+                break;
+            }
+            case 'L': {
+                int cal_index = get_widget_index(active_win, CALENDAR);
+                move_widget_date(&active_win->widgets[cal_index], 0, 1, 0);
+                werase(active_win->win);
+                render_calendar(active_win, true);
+                break;
+            }
+            case 'H': {
+                int cal_index = get_widget_index(active_win, CALENDAR);
+                move_widget_date(&active_win->widgets[cal_index], 0, -1, 0);
+                werase(active_win->win);
+                render_calendar(active_win, true);
                 break;
             }
             case 'h': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
-                if (active_win->widgets[cal_index].widget.calendar.selected_day != 1) {
-                    active_win->widgets[cal_index].widget.calendar.selected_day--;
-                    render_calendar(active_win, true);
-                }
+                move_widget_date(&active_win->widgets[cal_index], 0, 0, -1);
+                werase(active_win->win);
+                render_calendar(active_win, true);
                 break;
             }
             case 'k': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
-                if (active_win->widgets[cal_index].widget.calendar.selected_day - 7 >= 1) {
-                    active_win->widgets[cal_index].widget.calendar.selected_day -= 7;
-                    render_calendar(active_win, true);
-                }
+                move_widget_date(&active_win->widgets[cal_index], 0, 0, -7);
+                werase(active_win->win);
+                render_calendar(active_win, true);
                 break;
             }
             case 'j': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
-                int days_in_month = get_days_in_month(active_win->widgets[cal_index].widget.calendar.month);
-                if (active_win->widgets[cal_index].widget.calendar.selected_day + 7 <= days_in_month) {
-                    active_win->widgets[cal_index].widget.calendar.selected_day += 7;
-                    render_calendar(active_win, true);
-                }
+                move_widget_date(&active_win->widgets[cal_index], 0, 0, 7);
+                werase(active_win->win);
+                render_calendar(active_win, true);
                 break;
             }
             case 10: {

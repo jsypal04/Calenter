@@ -22,6 +22,7 @@
 typedef struct _calender_widget {
     int selected_day;
     int month;
+    int year;
 } Calendar;
 
 typedef struct _schedule_widget {
@@ -85,6 +86,12 @@ void render_schedule(Window* win, bool active);
 
 void init_calendar(Widget* calendar);
 void render_calendar(Window* win, bool active);
+
+/*
+ * Sets the given widget (either Schedule or Calendar) to the specified date.
+ * Returns -1 if the provided widget has a tag other than SCHEDULE or CALENDAR.
+ * */
+int move_widget_date(Widget* widget, int year, int month, int day);
 
 char* get_month_name(int month);
 int get_days_in_month(int month);

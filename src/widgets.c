@@ -56,6 +56,7 @@ void init_calendar(Widget* calendar) {
     Calendar cal;
     cal.selected_day = info->tm_mday;
     cal.month = info->tm_mon + 1;
+    cal.year = info->tm_year + 1900;
 
     calendar->tag = CALENDAR;
     calendar->widget.calendar = cal;
@@ -103,14 +104,11 @@ void render_calendar(Window* win, bool active) {
     int cal_index = get_widget_index(win, CALENDAR);
     Calendar calendar = win->widgets[cal_index].widget.calendar;
 
-    time_t raw_time = time(NULL);
-    struct tm* info = localtime(&raw_time);
-
     char* month_name = get_month_name(calendar.month);
 
     int header_length = strlen(month_name) + 5; // To account for the year
 
-    mvwprintw(win->win, 2, (win->width - header_length) / 2, "%s %d", month_name, info->tm_year + 1900);
+    mvwprintw(win->win, 2, (win->width - header_length) / 2, "%s %d", month_name, calendar.year);
 
     char* wday_labels[7] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
     for (int i = 0; i < 7; i++) {
@@ -119,10 +117,10 @@ void render_calendar(Window* win, bool active) {
         wattroff(win->win, A_UNDERLINE);
     }
 
-    int days_in_month = get_days_in_month(info->tm_mon + 1);
+    int days_in_month = get_days_in_month(calendar.month);
     int week_number = 1;
     for (int day = 1; day <= days_in_month; day++) {
-        struct tm my_time = get_day_info(info->tm_year + 1900, info->tm_mon + 1, day);
+        struct tm my_time = get_day_info(calendar.year, calendar.month, day);
 
         assert(day <= 31);
 
@@ -147,4 +145,50 @@ void render_calendar(Window* win, bool active) {
     }
 
     refresh_win(win, active);
+}
+
+int move_widget_date(Widget *widget, int year_delta, int month_delta, int day_delta) {
+    int year;
+    int month;
+    int day;
+
+    switch (widget->tag) {
+        case SCHEDULE:
+            year  = widget->widget.schedule.year;
+            month = widget->widget.schedule.month;
+            day   = widget->widget.schedule.day;
+            break;
+        case CALENDAR:
+            year = widget->widget.calendar.year;
+            month = widget->widget.calendar.month;
+            day   = widget->widget.calendar.selected_day;
+            break;
+        default: return -1;
+    }
+
+    int new_year = year + year_delta;
+    int new_month = month + month_delta;
+    int new_day = day + day_delta;
+
+    struct tm date = {0};
+    date.tm_year = new_year - 1900;
+    date.tm_mon  = new_month - 1;
+    date.tm_mday = new_day;
+    mktime(&date);
+
+    switch (widget->tag) {
+        case SCHEDULE:
+            widget->widget.schedule.year  = date.tm_year + 1900;
+            widget->widget.schedule.month = date.tm_mon + 1;
+            widget->widget.schedule.day   = date.tm_mday;
+            break;
+        case CALENDAR:
+            widget->widget.calendar.year         = date.tm_year + 1900;
+            widget->widget.calendar.month        = date.tm_mon + 1;
+            widget->widget.calendar.selected_day = date.tm_mday;
+            break;
+        default: return -1;
+    }
+
+    return 0;
 }
