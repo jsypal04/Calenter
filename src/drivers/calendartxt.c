@@ -50,7 +50,7 @@ struct events get_events(int year, int month, int day) {
         read = getline(&line, &len, calendar_file);
     } while (strstr(line, search_str) == NULL || read < 19);
 
-    if (read < 20) {
+    if (read <= 21) {
         // There are no events on this day.
         struct events events;
         init_events(&events);
@@ -367,14 +367,3 @@ char* get_calendar_path() {
     return calendar_path;
 }
 
-// int main() {
-//     struct event new_event;
-//     new_event.year = 2026;
-//     new_event.month = 2;
-//     new_event.day = 24;
-//     new_event.hour = 12;
-//     new_event.min = 36;
-//     new_event.summary = strdup("Be cool.");
-
-//     delete_event(new_event);
-// }

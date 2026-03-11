@@ -28,5 +28,3 @@ remote_url=<your gcal url>
 
 This is a list of known bugs that I would like to get around to fixing at some point.
 
-1. When you delete the only event in a day it leaves behind two spaces after the
-date header which causes some parsing errors.
