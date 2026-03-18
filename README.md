@@ -40,5 +40,5 @@ Download a calendar.txt template and place it in `~/.calendar/calendar.txt`
 
 Run the following command:
 ```bash
-curl "https://raw.githubusercontent.com/jsypal04/Calenter/refs/heads/main/install.sh" | bash
+curl "https://github.com/jsypal04/Calenter/releases/download/v0.1.0/install.sh" | bash
 ```
