@@ -24,7 +24,21 @@ ICS url using the following line:
 remote_url=<your gcal url>
 ```
 
-## Bugs
+## Installation
 
-This is a list of known bugs that I would like to get around to fixing at some point.
+### From source
 
+Run the following commands:
+```bash
+git clone https://github.com/jsypal04/Calenter.git
+make install
+```
+
+Download a calendar.txt template and place it in `~/.calendar/calendar.txt`
+
+### Pre-built
+
+Run the following command:
+```bash
+curl 
+```

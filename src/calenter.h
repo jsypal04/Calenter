@@ -5,7 +5,7 @@
 #include <ncurses.h>
 #include "drivers/calendartxt.h"
 
-#define DEBUG
+// #define DEBUG
 #define ACTIVE_COLOR_PAIR 1
 #define INACTIVE_COLOR_PAIR 2
 #define INPUT_FIELD_PAIR 3

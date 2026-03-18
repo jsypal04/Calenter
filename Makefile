@@ -21,4 +21,8 @@ $(BUILD_DIR):
 clean:
 	rm -rf $(BUILD_DIR)
 
+install: $(BIN)
+	cp $(BIN) $(HOME)/.local/bin
+
+
 .PHONY: clean
