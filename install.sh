@@ -8,3 +8,5 @@ curl "https://terokarvinen.com/2021/calendar-txt/calendar-txt-until-2033.txt" -o
 
 curl "https://github.com/jsypal04/Calenter/releases/download/v0.1.0/calenter-linux-x86_64" -o "$HOME/.local/bin/calenter"
 
+chmod +x "$HOME/.local/bin/calenter"
+
