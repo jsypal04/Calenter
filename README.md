@@ -38,7 +38,17 @@ Download a calendar.txt template and place it in `~/.calendar/calendar.txt`
 
 ### Pre-built
 
-Run the following command:
+Run the following command (don't do this):
 ```bash
 curl -L "https://github.com/jsypal04/Calenter/releases/download/v0.1.0/install.sh" | bash
 ```
+
+## Feature List
+
+This is a list of features I want to add.
+
+1. Ability to add all day events
+2. Repeat rules
+3. Multi-day all day events
+4. Native ics parser
+5. Ability for configuration (need to flesh this out)

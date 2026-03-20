@@ -327,16 +327,26 @@ int time_cmp(int hour1, int min1, int hour2, int min2) {
 }
 
 void format_time(char* buffer, int hour, int min) {
+    char suffix[3];
+    if (hour < 12) {
+        strcpy(suffix, "AM");
+    } else {
+        strcpy(suffix, "PM");
+    }
+
+    hour %= 12;
+    if (hour == 0) hour = 12;
+
     if (hour == -1) {
         sprintf(buffer, "ALL DAY");
     } else if (hour < 10 && min < 10) {
-        sprintf(buffer, "0%d:0%d", hour, min);
+        sprintf(buffer, "0%d:0%d %s", hour, min, suffix);
     } else if (hour < 10 && min >= 10) {
-        sprintf(buffer, "0%d:%d", hour, min);
+        sprintf(buffer, "0%d:%d %s", hour, min, suffix);
     } else if (hour >= 10 && min < 10) {
-        sprintf(buffer, "%d:0%d", hour, min);
+        sprintf(buffer, "%d:0%d %s", hour, min, suffix);
     } else if (hour >= 10 && min >= 10) {
-        sprintf(buffer, "%d:%d", hour, min);
+        sprintf(buffer, "%d:%d %s", hour, min, suffix);
     }
 }
 
