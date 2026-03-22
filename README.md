@@ -1,6 +1,7 @@
 # Calenter
 
-Calenter is a TUI frontend for calendar.txt written in C.
+Calenter is a TUI frontend for calendar.txt inspired by [Impala](https://github.com/pythops/impala)
+and [Bluetui](https://github.com/pythops/bluetui).
 
 ## Building from Source
 
@@ -52,3 +53,6 @@ This is a list of features I want to add.
 3. Multi-day all day events
 4. Native ics parser
 5. Ability for configuration (need to flesh this out)
+    1. Colors
+    2. Layout
+6. Google Calendar Integrations (read and write)

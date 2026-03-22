@@ -69,6 +69,13 @@ void free_events(struct events events);
 int time_cmp(int hour1, int min1, int hour2, int min2);
 
 /*
+ * Returns -1 if date 1 is before date 2, 1 if date 1 is after date 2
+ * and 0 if they are the same
+ */
+int date_cmp(int year1, int month1, int day1,
+             int year2, int month2, int day2);
+
+/*
  * Formats the given date for calendar.txt: "yyyy-mm-dd"
  */
 void format_calendartxt_date(char* buffer, int year, int month, int day);

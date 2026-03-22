@@ -2,13 +2,13 @@
 #include <ncurses.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <time.h>
 #include "calenter.h"
 #include "drivers/sync.h"
 
 
 void debug_log(const char* format, ...) {
 #ifdef DEBUG
+    #include <time.h>
     #include <stdio.h>
     #define DEBUG_LOG_FILE "logs/debug.log"
 
@@ -50,9 +50,12 @@ int main() {
     cbreak();
     start_color();
 
+    init_color(DARK_GREY, 251, 251, 251);
+
     init_pair(ACTIVE_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK);
     init_pair(INACTIVE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
-    init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, 8);
+    init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, DARK_GREY);
+    init_pair(ACTIVE_INPUT_FIELD_PAIR, COLOR_WHITE, 8);
     init_pair(CONTROLS_COLOR_PAIR, COLOR_BLUE, COLOR_BLACK);
 
     // Focusable windows

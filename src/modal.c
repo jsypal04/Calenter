@@ -6,27 +6,32 @@
 #include "calenter.h"
 #include "drivers/calendartxt.h"
 
-enum active_input {
+enum input_tag {
     HOUR,
     MIN,
+    SUFFIX,
     SUMMARY,
 };
 
+typedef struct _input_field {
+    WINDOW* win;
+    int index;
+    char content[2048];
+} InputField;
+
 typedef struct _input_fields {
-    enum active_input active_input;
-    WINDOW* summary_win;
-    int hour_index;
-    int min_index;
-    int summary_index;
-    char hour[5];
-    char min[5];
-    char summary[2000];
+    enum input_tag active_input;
+    InputField     hour;
+    InputField     min;
+    InputField     suffix;
+    InputField     summary;
 } Inputs;
 
 
 void set_byte(Inputs* inputs, char ch);
 void delete_byte(Inputs* inputs);
 void render_input_fields(WINDOW* win, Inputs* inputs);
+void init_inputs(Inputs* inputs, WINDOW* modal, int width);
 
 struct event add_event_modal(Window** windows, struct event* event) {
     int height = 3 * LINES / 4;
@@ -35,30 +40,35 @@ struct event add_event_modal(Window** windows, struct event* event) {
     WINDOW* modal = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
     keypad(modal, true);
     box(modal, 0, 0);
-    mvwprintw(modal, 0, 1, " Add Event ");
 
-    Inputs inputs = {0};
-    inputs.active_input = HOUR;
-    inputs.summary_win = derwin(modal, 10, width - 6, 7, 3);
+    Inputs inputs;
+    init_inputs(&inputs, modal, width);
 
     if (event != NULL) {
         assert(event->hour < 24);
         assert(event->min < 60);
         assert(strlen(event->summary) < 2000);
 
-        char* hour_fmt_str = (event->hour < 10) ? "0%d" : "%d";
+        if (event->hour >= 12) {
+            strcpy(inputs.suffix.content, "PM");
+        } else {
+            strcpy(inputs.suffix.content, "AM");
+        }
+
+        int hour = event->hour != 12 ? event->hour % 12 : 12;
+
+        char* hour_fmt_str = (hour < 10) ? "0%d" : "%d";
         char* min_fmt_str = (event->min < 10) ? "0%d" : "%d";
 
-        sprintf(inputs.hour, hour_fmt_str, event->hour);
-        sprintf(inputs.min, min_fmt_str, event->min);
-        sprintf(inputs.summary, "%s", event->summary);
+        sprintf(inputs.hour.content, hour_fmt_str, hour);
+        sprintf(inputs.min.content, min_fmt_str, event->min);
+        sprintf(inputs.summary.content, "%s", event->summary);
 
-        inputs.hour_index = strlen(inputs.hour);
-        inputs.min_index = strlen(inputs.min);
-        inputs.summary_index = strlen(inputs.summary);
+        inputs.hour.index = strlen(inputs.hour.content);
+        inputs.min.index = strlen(inputs.min.content);
+        inputs.summary.index = strlen(inputs.summary.content);
     } else {
-        strcpy(inputs.hour, "  ");
-        strcpy(inputs.min, "  ");
+        strcpy(inputs.suffix.content, "AM");
     }
 
     render_input_fields(modal, &inputs);
@@ -73,8 +83,23 @@ struct event add_event_modal(Window** windows, struct event* event) {
                 break;
             }
             case '\t': {
-                inputs.active_input = (inputs.active_input + 1) % 3;
+                inputs.active_input = (inputs.active_input + 1) % 4;
+                render_input_fields(modal, &inputs);
                 break;
+            }
+            case 'p': {
+                if (inputs.active_input == SUFFIX) {
+                    strcpy(inputs.suffix.content, "PM");
+                    render_input_fields(modal, &inputs);
+                    break;
+                }
+            }
+            case 'a': {
+                if (inputs.active_input == SUFFIX) {
+                    strcpy(inputs.suffix.content, "AM");
+                    render_input_fields(modal, &inputs);
+                    break;
+                }
             }
             default: {
                 set_byte(&inputs, ch);
@@ -88,10 +113,12 @@ struct event add_event_modal(Window** windows, struct event* event) {
     struct event new_event = {0};
 
     if (ch == 10) {
-        new_event.hour = atoi(inputs.hour);
-        new_event.min = atoi(inputs.min);
-        new_event.summary = strdup(inputs.summary);
+        new_event.hour = atoi(inputs.hour.content);
+        new_event.min = atoi(inputs.min.content);
+        new_event.summary = strdup(inputs.summary.content);
     }
+
+    if (strcmp(inputs.suffix.content, "PM") == 0) new_event.hour += 12;
 
     werase(modal);
     wrefresh(modal);
@@ -111,60 +138,93 @@ struct event add_event_modal(Window** windows, struct event* event) {
 
 void set_byte(Inputs* inputs, char ch) {
     if (inputs->active_input == HOUR) {
-        if (inputs->hour_index >= 2 || ch < 48 || ch > 57) return;
+        if (inputs->hour.index >= 2 || ch < 48 || ch > 57) return;
 
-        inputs->hour[inputs->hour_index] = ch;
-        inputs->hour_index++;
+        inputs->hour.content[inputs->hour.index] = ch;
+        inputs->hour.index++;
 
     } else if (inputs->active_input == MIN) {
-        if (inputs->min_index >= 2 || ch < 48 || ch > 57) return;
+        if (inputs->min.index >= 2 || ch < 48 || ch > 57) return;
 
-        inputs->min[inputs->min_index] = ch;
-        inputs->min_index++;
+        inputs->min.content[inputs->min.index] = ch;
+        inputs->min.index++;
     } else {
-        if (inputs->summary_index >= 1999) return;
+        if (inputs->summary.index >= 1999) return;
 
-        inputs->summary[inputs->summary_index] = ch;
-        inputs->summary_index++;
+        inputs->summary.content[inputs->summary.index] = ch;
+        inputs->summary.index++;
     }
 }
 
 void delete_byte(Inputs* inputs) {
     switch (inputs->active_input) {
         case HOUR: {
-            if (inputs->hour_index > 0) inputs->hour_index--;
-            inputs->hour[inputs->hour_index] = ' ';
+            if (inputs->hour.index > 0) inputs->hour.index--;
+            inputs->hour.content[inputs->hour.index] = ' ';
             break;
         }
         case MIN: {
-            if (inputs->min_index > 0) inputs->min_index--;
-            inputs->min[inputs->min_index] = ' ';
+            if (inputs->min.index > 0) inputs->min.index--;
+            inputs->min.content[inputs->min.index] = ' ';
             break;
         }
+        case SUFFIX: {
+            
+        }
         case SUMMARY: {
-            if (inputs->summary_index > 0) inputs->summary_index--;
-            inputs->summary[inputs->summary_index] = ' ';
+            if (inputs->summary.index > 0) inputs->summary.index--;
+            inputs->summary.content[inputs->summary.index] = ' ';
             break;
         }
     };
 }
 
 void render_input_fields(WINDOW* win, Inputs* inputs) {
-    mvwprintw(win, 2, 3, "Time (24 hour):");
-    wattron(win, COLOR_PAIR(INPUT_FIELD_PAIR));
-    mvwprintw(win, 3, 3, "%s", inputs->hour);
-    wattroff(win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    mvwprintw(win, 2, 3, "Time:");
+    mvwprintw(inputs->hour.win, 0, 0, "%s", inputs->hour.content);
+    if (inputs->active_input == HOUR) {
+        wbkgd(inputs->hour.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+    } else {
+        wbkgd(inputs->hour.win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    }
 
     mvwprintw(win, 3, 5, ":");
 
-    wattron(win, COLOR_PAIR(INPUT_FIELD_PAIR));
-    mvwprintw(win, 3, 6, "%s", inputs->min);
-    wattroff(win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    mvwprintw(inputs->min.win, 0, 0, "%s", inputs->min.content);
+    if (inputs->active_input == MIN) {
+        wbkgd(inputs->min.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+    } else {
+        wbkgd(inputs->min.win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    }
+
+    mvwprintw(inputs->suffix.win, 0, 0, "%s", inputs->suffix.content);
+    if (inputs->active_input == SUFFIX) {
+        wbkgd(inputs->suffix.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+    } else {
+        wbkgd(inputs->suffix.win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    }
 
     mvwprintw(win, 6, 3, "Summary (2000 character limit):");
-    mvwprintw(inputs->summary_win, 0, 0, "%s", inputs->summary);
-    wbkgd(inputs->summary_win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    mvwprintw(inputs->summary.win, 0, 0, "%s", inputs->summary.content);
+    if (inputs->active_input == SUMMARY) {
+        wbkgd(inputs->summary.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+    } else {
+        wbkgd(inputs->summary.win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    }
 
     wrefresh(win);
-    wrefresh(inputs->summary_win);
+    wrefresh(inputs->summary.win);
+    wrefresh(inputs->hour.win);
+    wrefresh(inputs->min.win);
+    wrefresh(inputs->suffix.win);
+}
+
+void init_inputs(Inputs* inputs, WINDOW* modal, int width) {
+    memset(inputs, 0, sizeof(Inputs));
+    inputs->active_input = HOUR;
+
+    inputs->hour.win    = derwin(modal, 1, 2, 3, 3);
+    inputs->min.win     = derwin(modal, 1, 2, 3, 6);
+    inputs->suffix.win  = derwin(modal, 1, 2, 3, 9);
+    inputs->summary.win = derwin(modal, 10, width - 6, 7, 3);
 }

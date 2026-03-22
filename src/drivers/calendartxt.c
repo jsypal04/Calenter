@@ -280,13 +280,9 @@ void append_event(struct events* events, struct event new_event) {
     if (events->length == events->size) {
         struct event* longer_events = malloc(2 * events->size * sizeof(struct event));
 
-        // printf("events->length = %zu\n", events->length);
         for (int i = 0; i < events->length; i++) {
             longer_events[i] = events->events[i];
-            // printf("running line %d\n", __LINE__);
-            free(events->events[i].summary);
         }
-        // printf("running line %d\n", __LINE__);
         free(events->events);
 
         events->size *= 2;
@@ -326,27 +322,41 @@ int time_cmp(int hour1, int min1, int hour2, int min2) {
     return 0;
 }
 
-void format_time(char* buffer, int hour, int min) {
-    char suffix[3];
-    if (hour < 12) {
-        strcpy(suffix, "AM");
-    } else {
-        strcpy(suffix, "PM");
+int date_cmp(int year1, int month1, int day1,
+             int year2, int month2, int day2) {
+
+    if (year1 < year2) {
+        return -1;
+    } else if (year1 > year2) {
+        return 1;
     }
 
-    hour %= 12;
-    if (hour == 0) hour = 12;
+    if (month1 < month2) {
+        return -1;
+    } else if (month1 > month2) {
+        return 1;
+    }
 
+    if (day1 < day2) {
+        return -1;
+    } else if (day1 > day2) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void format_time(char* buffer, int hour, int min) {
     if (hour == -1) {
         sprintf(buffer, "ALL DAY");
     } else if (hour < 10 && min < 10) {
-        sprintf(buffer, "0%d:0%d %s", hour, min, suffix);
+        sprintf(buffer, "0%d:0%d", hour, min);
     } else if (hour < 10 && min >= 10) {
-        sprintf(buffer, "0%d:%d %s", hour, min, suffix);
+        sprintf(buffer, "0%d:%d", hour, min);
     } else if (hour >= 10 && min < 10) {
-        sprintf(buffer, "%d:0%d %s", hour, min, suffix);
+        sprintf(buffer, "%d:0%d", hour, min);
     } else if (hour >= 10 && min >= 10) {
-        sprintf(buffer, "%d:%d %s", hour, min, suffix);
+        sprintf(buffer, "%d:%d", hour, min);
     }
 }
 

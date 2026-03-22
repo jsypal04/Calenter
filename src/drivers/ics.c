@@ -9,6 +9,7 @@
  * linked into the project yet.
  */
 
+#include "calendartxt.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define INIT_EVENTS_SIZE 500
 
@@ -41,26 +43,26 @@ typedef struct _content_line {
   char* value;
 } ContentLine;
 
-void free_content_line(ContentLine cline) {
-    free(cline.name);
-    cline.name = NULL;
+void free_content_line(ContentLine* cline) {
+    free(cline->name);
+    cline->name = NULL;
 
-    for (int i = 0; i < cline.num_params; i++) {
-        free(cline.params[i].name);
-        cline.params[i].name = NULL;
+    for (int i = 0; i < cline->num_params; i++) {
+        free(cline->params[i].name);
+        cline->params[i].name = NULL;
 
-        for (int j = 0; j < cline.params[i].num_values; j++) {
-            free(cline.params[i].values[j]);
-            cline.params[i].values[j] = NULL;
+        for (int j = 0; j < cline->params[i].num_values; j++) {
+            free(cline->params[i].values[j]);
+            cline->params[i].values[j] = NULL;
         }
-        free(cline.params[i].values);
-        cline.params[i].values = NULL;
+        free(cline->params[i].values);
+        cline->params[i].values = NULL;
     }
-    free(cline.params);
-    cline.params = NULL;
+    free(cline->params);
+    cline->params = NULL;
 
-    free(cline.value);
-    cline.value = NULL;
+    free(cline->value);
+    cline->value = NULL;
 }
 
 /*
@@ -113,10 +115,8 @@ int get_line(Line *line) {
 
       c = fgetc(line->ics_file); // takes care of the newline
       c = fgetc(line->ics_file);
-      if (c == ' ' || c == '\t') {
-        ungetc(c, line->ics_file);
-      } else {
-        break;
+      if (c != ' ' && c != '\t') {
+          break;
       }
     }
     ungetc(c, line->ics_file);
@@ -193,9 +193,81 @@ ContentLine parse_content_line(Line line) {
     return cline;
 }
 
-void parse_ics(char *path) {
+/*
+ * Parses the string timestamp and populates the date and time fields
+ * of the event.
+ *
+ * Returns 0 if the parsing was successful, otherwise -1.
+ * */
+int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
+    if (strlen(timestamp) < 8) return -1;
+
+    char  year[10] = "\0";
+    char month[10] = "\0";
+    char   day[10] = "\0";
+    char  hour[10] = "\0";
+    char   min[10] = "\0";
+
+    strncpy(year, timestamp, 4);
+    strncpy(month, timestamp + 4, 2);
+    strncpy(day, timestamp + 6, 2);
+
+    // TODO: Validate the atoi inputs
+    event->year  = atoi(year);
+    event->month = atoi(month);
+    event->day   = atoi(day);
+
+    if (strlen(timestamp) == 8) {
+        event->hour = -1;
+        event->min  = -1;
+        return 0;
+    }
+
+    if (timestamp[8] != 'T' || strlen(timestamp) < 15)
+        return -1;
+
+    strncpy(hour, timestamp + 9, 2);
+    strncpy(min, timestamp + 11, 2);
+
+    // TODO: Validate the atoi inputs
+    event->hour = atoi(hour);
+    event->min  = atoi(min);
+
+    // Handle timezone conversion
+    if (strlen(timestamp) == 16 && timestamp[15] == 'Z') {
+        struct tm utc_time = {0};
+        utc_time.tm_year = event->year - 1900;
+        utc_time.tm_mon  = event->month - 1;
+        utc_time.tm_mday = event->day;
+        utc_time.tm_hour = event->hour;
+        utc_time.tm_min  = event->min;
+        mktime(&utc_time);
+
+        time_t t = timegm(&utc_time);
+
+        struct tm local_time = {0};
+        localtime_r(&t, &local_time);
+
+        event->year  = local_time.tm_year + 1900;
+        event->month = local_time.tm_mon + 1;
+        event->day   = local_time.tm_mday;
+        event->hour  = local_time.tm_hour;
+        event->min   = local_time.tm_min;
+    }
+
+    return 0;
+}
+
+struct events parse_ics(char *path) {
     Line line = {0};
     line.ics_file = fopen(path, "r");
+
+    struct events events = {0};
+    init_events(&events);
+
+    struct tm today = {0};
+    time_t t = time(NULL);
+    localtime_r(&t, &today);
     
     get_line(&line);
     ContentLine cline = parse_content_line(line);
@@ -203,29 +275,38 @@ void parse_ics(char *path) {
     int eof_marker;
 
     while (eof_marker != EOF) {
-        while (strcmp(cline.name, "BEGIN") != 0 || strcmp(cline.value, "VEVENT") != 0 || eof_marker == EOF) {
-            free_content_line(cline);
+        while (eof_marker != EOF && (strcmp(cline.name, "BEGIN") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
+            free_content_line(&cline);
             eof_marker = get_line(&line);
             cline = parse_content_line(line);
         }
 
         if (eof_marker == EOF) break;
 
-        while (strcmp(cline.name, "END") != 0 || strcmp(cline.value, "VEVENT") != 0 || eof_marker == EOF) {
-            free_content_line(cline);
+        struct event event = {0};
+        bool event_skipped = false;
+
+        while (eof_marker != EOF && (strcmp(cline.name, "END") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
+            free_content_line(&cline);
             eof_marker = get_line(&line);
             cline = parse_content_line(line);
 
-            printf("-------------\n");
             if (strcmp(cline.name, "DTSTART") == 0) {
+                parse_ISO_8601_timestamp(cline.value, &event);
                 printf("DTSTART = %s\n", cline.value);
             } else if (strcmp(cline.name, "SUMMARY") == 0) {
                 printf("SUMMARY = %s\n", cline.value);
+                event.summary = strdup(cline.value);
             }
+        }
+        if (!event_skipped) {
+            append_event(&events, event);
+            printf("-------------\n");
         }
     }
 
     fclose(line.ics_file);
+    return events;
 }
 
 int main(int argc, char *argv[]) {
