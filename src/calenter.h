@@ -17,10 +17,12 @@
 #define SCHEDULE_WIN 0
 #define CALENDAR_WIN 1
 #define CONTROLS_WIN 2
+#define MODAL_WIN    50
 
 #define NUM_WINDOWS 3
 #define NUM_FOCUSABLE_WINDOWS 2
 
+#define CTRL(x) ((x) & 0x1f)
 
 typedef struct _calender_widget {
     int selected_day;
@@ -83,6 +85,7 @@ Window* create_win(int id, char* title, int height, int width, int startx, int s
 void free_win(Window* window);
 void refresh_win(Window* window, bool active);
 void set_active_window(Window** active_win, Window* window);
+void refresh_controls(int win_id);
 
 void init_schedule(Widget* schedule);
 void render_schedule(Window* win, bool active);

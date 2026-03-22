@@ -52,7 +52,13 @@ This is a list of features I want to add.
 2. Repeat rules
 3. Multi-day all day events
 4. Native ics parser
-5. Ability for configuration (need to flesh this out)
+5. Google Calendar Integrations (read and write)
+6. Ability for configuration (need to flesh this out)
     1. Colors
     2. Layout
-6. Google Calendar Integrations (read and write)
+
+## Bug List
+
+This is a list of known bugs.
+
+1. Trim whitespace off of event descriptions when adding/editing an event.

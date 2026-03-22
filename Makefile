@@ -25,4 +25,4 @@ install: $(BIN)
 	cp $(BIN) $(HOME)/.local/bin
 
 
-.PHONY: clean
+.PHONY: clean install

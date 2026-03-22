@@ -5,8 +5,6 @@
 
 extern Window* windows[NUM_WINDOWS];
 
-void refresh_controls(int win_id);
-
 Window* create_win(int id, char* title, int height, int width, int startx, int starty) {
     Window* window = malloc(sizeof(Window));
 
@@ -45,6 +43,7 @@ void refresh_win(Window* window, bool active) {
         box(window->win, 0, 0);
         mvwprintw(window->win, 0, 1, " %s ", window->title);
         wattroff(window->win, COLOR_PAIR(ACTIVE_COLOR_PAIR));
+        refresh_controls(window->id);
     } else {
         box(window->win, 0, 0);
         mvwprintw(window->win, 0, 1, " %s ", window->title);
@@ -62,15 +61,15 @@ void set_active_window(Window** active_win, Window* window) {
     *active_win = window;
     wattron(window->win, COLOR_PAIR(ACTIVE_COLOR_PAIR));
     refresh_win(window, true);
-
-    refresh_controls(window->id);
 }
 
 void refresh_controls(int win_id) {
     char common_ctrls[256] = "hH,j,k,lL  Nav | q  Quit | s  Sync";
 
     char controls_str[4096] = "\0";
-    strcpy(controls_str, common_ctrls);
+
+    if (win_id != MODAL_WIN)
+        strcpy(controls_str, common_ctrls);
 
     switch (win_id) {
         case SCHEDULE_WIN:
@@ -79,6 +78,9 @@ void refresh_controls(int win_id) {
 
         case CALENDAR_WIN:
             strcpy(controls_str + strlen(common_ctrls), " | ENTER  Go to Day");
+            break;
+        case MODAL_WIN:
+            strcpy(controls_str, "ctrl-a  Toggle All Day | a/p  AM/PM Select | TAB  Switch Active Input | ENTER  Add | ESC  Discard");
             break;
     }
 
