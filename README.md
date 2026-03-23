@@ -48,7 +48,7 @@ curl -L "https://github.com/jsypal04/Calenter/releases/download/v0.1.0/install.s
 
 This is a list of features I want to add.
 
-1. Ability to add all day events
+1. ~Ability to add all day events~
 2. Repeat rules
 3. Multi-day all day events
 4. Native ics parser
@@ -60,5 +60,3 @@ This is a list of features I want to add.
 ## Bug List
 
 This is a list of known bugs.
-
-1. Trim whitespace off of event descriptions when adding/editing an event.
