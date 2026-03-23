@@ -48,14 +48,14 @@ curl -L "https://github.com/jsypal04/Calenter/releases/download/v0.1.0/install.s
 
 This is a list of features I want to add.
 
-1. ~Ability to add all day events~
-2. Repeat rules
-3. Multi-day all day events
-4. Native ics parser
-5. Google Calendar Integrations (read and write)
-6. Ability for configuration (need to flesh this out)
-    1. Colors
-    2. Layout
+- [x] Ability to add all day events
+- [ ] Repeat rules
+- [ ] Multi-day all day events
+- [ ] Native ics parser
+- [ ] Google Calendar Integrations (read and write)
+- [ ] Ability for configuration (need to flesh this out)
+    - [ ] Colors
+    - [ ] Layout
 
 ## Bug List
 
