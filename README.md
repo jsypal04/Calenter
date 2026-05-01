@@ -56,7 +56,12 @@ This is a list of features I want to add.
 - [ ] Ability for configuration (need to flesh this out)
     - [ ] Colors
     - [ ] Layout
+- [ ] Add cursors to input fields
 
 ## Bug List
 
 This is a list of known bugs.
+
+1. If you try to go to a day with fewer events than the current day (via the calendar widget)
+the selector does not reset to something in the smaller range.
+2. Something is up with creating events that are at midnight.

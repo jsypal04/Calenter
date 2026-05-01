@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "calendartxt.h"
+#include "../calenter.h"
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 
@@ -68,7 +69,6 @@ struct events get_events(int year, int month, int day) {
 
     char* token = strtok(trimmed_line, ",");
     while (token != NULL) {
-        // printf("%s\n", token);
         struct event event = parse_event(token);
         event.year = year;
         event.month = month;

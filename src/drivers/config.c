@@ -9,6 +9,7 @@
  * */
 
 #include "config.h"
+#include "../calenter.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -26,12 +27,10 @@ Config read_config() {
     char* home = getenv("HOME");
     char* config_path = malloc(sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
     memset(config_path, '\0', sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
-    sprintf(config_path, "%s%s", home, CONFIG_DIR);
-
-    config_exists(config_path);
-    sprintf(config_path, "%s%s", config_path, CONFIG_FILE); 
+    sprintf(config_path, "%s%s%s", home, CONFIG_DIR, CONFIG_FILE);
 
     FILE* config_file = fopen(config_path, "r");
+    if (!config_file) return config;
 
     free(config_path);
 
@@ -47,9 +46,7 @@ Config read_config() {
         
         if (strstr(line, "remote_url")) {
             config.remote_url = strdup(line + strlen("remote_url") + 1);
-            if (config.remote_url[strlen(config.remote_url) - 1] == '\n') {
-                config.remote_url[strlen(config.remote_url) - 1] = '\0';
-            }
+            trim(config.remote_url);
         }
     } while (read > 0);
 
@@ -59,17 +56,3 @@ Config read_config() {
     return config;
 }
 
-
-void config_exists(char* dir) {
-    struct stat st;
-    if (stat(dir, &st) == -1) {
-        mkdir(dir, 0755);
-
-        char* abs_path = malloc(sizeof(char) * (strlen(dir) + strlen(CONFIG_FILE) + 5));
-        memset(abs_path, '\0', sizeof(char) * (strlen(dir) + strlen(CONFIG_FILE) + 5));
-        sprintf(abs_path, "%s%s", dir, CONFIG_FILE);
-        FILE* tmp = fopen(abs_path, "w");
-        fclose(tmp);
-        free(abs_path);
-    }
-}

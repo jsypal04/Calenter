@@ -10,6 +10,7 @@
  */
 
 #include "calendartxt.h"
+#include "../utils/array.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -258,6 +259,161 @@ int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
     return 0;
 }
 
+enum FREQ handle_freq(char* value) {
+    if (strcmp(value, "SECONDLY") == 0) {
+        return SECONDLY;
+    } else if (strcmp(value, "MINUTELY") == 0) {
+        return MINUTELY;
+    } else if (strcmp(value, "HOURLY") == 0) {
+        return HOURLY;
+    } else if (strcmp(value, "DAILY") == 0) {
+        return DAILY;
+    } else if (strcmp(value, "WEEKLY") == 0) {
+        return WEEKLY;
+    } else if (strcmp(value, "MONTHLY") == 0) {
+        return MONTHLY;
+    } else if (strcmp(value, "YEARLY") == 0) {
+        return YEARLY;
+    } else {
+        return NONE;
+    }
+}
+
+Array* handle_by_numeric_time_unit(char* value) {
+    Array* array = new_array(10, INT);
+
+    int start = 0;
+    for (int i = 0; i < strlen(value) - 1; i++) {
+        if (value[i] != ',') continue;
+        
+        assert(i - start <= 4);
+
+        char tmp[5] = "\0";
+        strncpy(tmp, value + start, i - start);
+
+        append_int(array, atoi(tmp)); // Maybe valitate input to atoi??
+        start = i + 1;
+    }
+
+    assert(strlen(value) - start <= 4);
+
+    char tmp[5] = "\0";
+    strncpy(tmp, value + start, strlen(value) - start);
+    append_int(array, atoi(tmp));
+
+    return array;
+}
+
+Array* handle_by_categorical_time_unit(char* value) {
+    Array* array = new_array(10, STRING);
+
+    int start = 0;
+    for (int i = 0; i < strlen(value); i++) {
+        if (value[i] != ',') continue;
+
+        char* tmp = strndup(value + start, i - start);
+        append_string(array, tmp);
+        free(tmp);
+        tmp = NULL;
+        start = i + 1;
+    }
+
+    char* tmp = strndup(value + start, strlen(value) - start);
+    append_string(array, tmp);
+    free(tmp);
+    tmp = NULL;
+
+    return array;
+}
+
+enum WKDAY handle_wkst(char* value) {
+    if (strcmp(value, "SU") == 0) {
+        return SU;
+    } else if (strcmp(value, "MO") == 0) {
+        return MO;
+    } else if (strcmp(value, "TU") == 0) {
+        return TU;
+    } else if (strcmp(value, "WE") == 0) {
+        return WE;
+    } else if (strcmp(value, "TH") == 0) {
+        return TH;
+    } else if (strcmp(value, "FR") == 0) {
+        return FR;
+    } else if (strcmp(value, "SA") == 0) {
+        return SA;
+    } else {
+        return -1;
+    }
+}
+
+struct rrule parse_rrule(char* raw_rrule) {
+    struct rrule rrule = {0};
+
+    int start = 0;
+    int index = 0;
+    char ch = raw_rrule[0];
+
+    while (ch != '\0') {
+        while (ch != '=') {
+            index++;
+            ch = raw_rrule[index];
+        }
+
+        char name[32] = "\0";
+        strncpy(name, raw_rrule + start, index - start);
+        printf("\tname = %s\n", name);
+        
+        index++;
+        start = index;
+        while (ch != ';' && ch != '\0') {
+            index++;
+            ch = raw_rrule[index];
+        }
+
+        char* value = malloc(sizeof(char) * 2 * (index - start));
+        memset(value, '\0', sizeof(char) * 2 * (index - start));
+        strncpy(value, raw_rrule + start, index - start);
+        printf("\tvalue = %s\n", value);
+
+        if (strcmp(name, "FREQ") == 0) {
+            rrule.freq = handle_freq(value);
+        } else if (strcmp(name, "UNTIL") == 0) {
+            // TODO: Implement
+        } else if (strcmp(name, "COUNT") == 0) {
+            rrule.count = atoi(value);
+        } else if (strcmp(name, "INTERVAL") == 0) {
+            rrule.interval = atoi(value);
+        } else if (strcmp(name, "BYSECOND") == 0) {
+            rrule.bysecond = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYMINTUTE") == 0) {
+            rrule.byminute = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYHOUR") == 0) {
+            rrule.byhour = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYDAY") == 0) {
+            rrule.byday = handle_by_categorical_time_unit(value);
+        } else if (strcmp(name, "BYMONTHDAY") == 0) {
+            rrule.bymonthday = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYYEARDAY") == 0) {
+            rrule.byyearday = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYWEEKNO") == 0) {
+            rrule.byweekno = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYMONTH") == 0) {
+            rrule.bymonth = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "BYSETPOS") == 0) {
+            rrule.bysetpos = handle_by_numeric_time_unit(value);
+        } else if (strcmp(name, "WKST") == 0) {
+            rrule.wkst = handle_wkst(value);
+        }
+
+        free(value);
+
+        index++;
+        start = index;
+    }
+
+    return rrule;
+}
+
 struct events parse_ics(char *path) {
     Line line = {0};
     line.ics_file = fopen(path, "r");
@@ -272,7 +428,7 @@ struct events parse_ics(char *path) {
     get_line(&line);
     ContentLine cline = parse_content_line(line);
 
-    int eof_marker;
+    int eof_marker = 0;
 
     while (eof_marker != EOF) {
         while (eof_marker != EOF && (strcmp(cline.name, "BEGIN") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
@@ -293,15 +449,15 @@ struct events parse_ics(char *path) {
 
             if (strcmp(cline.name, "DTSTART") == 0) {
                 parse_ISO_8601_timestamp(cline.value, &event);
-                printf("DTSTART = %s\n", cline.value);
             } else if (strcmp(cline.name, "SUMMARY") == 0) {
-                printf("SUMMARY = %s\n", cline.value);
                 event.summary = strdup(cline.value);
+            } else if (strcmp(cline.name, "RRULE") == 0) {
+                printf("RRULE = %s\n", cline.value);
+                event.rrule = parse_rrule(cline.value);
             }
         }
         if (!event_skipped) {
             append_event(&events, event);
-            printf("-------------\n");
         }
     }
 
@@ -312,6 +468,7 @@ struct events parse_ics(char *path) {
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     printf("Usage: ./ics path/to/ics/file\n");
+    return 0;
   }
 
   parse_ics(argv[1]);

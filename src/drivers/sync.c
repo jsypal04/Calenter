@@ -13,22 +13,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <curl/curl.h>
+#include <curl/easy.h>
 #include "sync.h"
+#include "calendartxt.h"
 #include "config.h"
+#include "ics.h"
 
 #define SYNC_SCRIPT "fetch_calendar.bash"
 #define SYNC_SCRIPT_PATH "/.calendar/scripts/fetch_calendar.bash"
+#define SYNC_TMP_FILE "/tmp/gcal.ics"
 
 typedef enum _ERRNO {
-    OK,
+    SUCCESS,
     NO_SYNC_SCRIPT_PATH,
-    NO_REMOTE
+    NO_REMOTE,
+    CURL_FAILED,
 } SYNC_ERR;
 
 char* get_sync_script_path();
+size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream);
 
 int sync_calendar() {
-
     Config config = read_config();
     if (config.remote_url == NULL) return NO_REMOTE;
 
@@ -45,7 +51,49 @@ int sync_calendar() {
 
     free(config.remote_url);
 
-    return 0;
+    return SUCCESS;
+}
+
+int sync_calendar_curl() {
+    CURL* curl;
+    FILE* output_file;
+    CURLcode res;
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
+
+    if (!curl) {
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        return CURL_FAILED;
+    };
+
+    Config config = read_config();
+    if (config.remote_url == NULL) return NO_REMOTE;
+
+    output_file = fopen(SYNC_TMP_FILE, "w");
+
+    curl_easy_setopt(curl, CURLOPT_URL, config.remote_url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, output_file);
+
+    res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) return CURL_FAILED;
+
+
+    fclose(output_file);
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+
+    struct events events = parse_ics(SYNC_TMP_FILE);
+
+    return SUCCESS;
+}
+
+size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream) {
+    FILE *fp = (FILE *)stream;
+    return fwrite(ptr, size, nmemb, fp);
 }
 
 /*

@@ -105,4 +105,9 @@ struct tm get_day_info(int year, int month, int day);
 
 struct event add_event_modal(Window** windows, struct event* event);
 
+/*
+ * Removes leading and trailing whitespace
+ * */
+void trim(char* str);
+
 #endif

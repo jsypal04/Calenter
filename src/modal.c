@@ -138,10 +138,13 @@ struct event add_event_modal(Window** windows, struct event* event) {
             new_event.hour = atoi(inputs.hour.content);
             new_event.min = atoi(inputs.min.content);
         }
+
+        trim(inputs.summary.content);
         new_event.summary = strdup(inputs.summary.content);
     }
 
-    if (strcmp(inputs.suffix.content, "PM") == 0 && !inputs.all_day) new_event.hour += 12;
+    if (strcmp(inputs.suffix.content, "PM") == 0 && !inputs.all_day) 
+        new_event.hour += 12;
 
     werase(modal);
     wrefresh(modal);

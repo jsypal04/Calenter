@@ -1,9 +1,9 @@
 CC = gcc
 CFLAGS = -g -Wall
-LDLIBS = -lncurses
+LDLIBS = -lncurses -lcurl
 BUILD_DIR = build
 
-SRC_FILES := $(shell find . -name "*.c" ! -name "ics.c")
+SRC_FILES := $(shell find . -name "*.c")
 OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRC_FILES))
 
 BIN = $(BUILD_DIR)/calenter
