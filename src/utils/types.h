@@ -15,7 +15,6 @@ typedef struct array_t Array;
 
 enum FREQ {
     NONE,
-    SECONDLY,
     MINUTELY,
     HOURLY,
     DAILY,

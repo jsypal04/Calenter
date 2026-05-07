@@ -34,8 +34,6 @@ Config read_config() {
 
     free(config_path);
 
-    if (config_file == NULL) return config;
-
     char* line = NULL;
     size_t len = 0;
     int read;

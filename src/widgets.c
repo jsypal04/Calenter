@@ -13,13 +13,13 @@ void add_widget(Window* window, Widget widget) {
         return;
     }
 
-    Widget* new_widgets = malloc(window->num_widgets + 1);
+    Widget* new_widgets = malloc(sizeof(Widget) * (window->num_widgets + 1));
     for (int i = 0; i < window->num_widgets; i++) {
         new_widgets[i] = window->widgets[i];
     }
     free(window->widgets);
     window->widgets = new_widgets;
-    window->widgets++;
+    window->num_widgets++;
 }
 
 // Gets the index of the widget in the widget array. Returns -1 if not found.

@@ -2,11 +2,8 @@
  * ics.c
  *
  * This file contains functions to parse events in a ICS
- * file into data structures that can be written to calendat.txt
+ * file into data structures that can be written to calendar.txt
  * using the functions in calendartxt.c.
- *
- * NOTE: This file does not work yet and is not actually compiled and
- * linked into the project yet.
  */
 
 #include "calendartxt.h"
@@ -245,9 +242,7 @@ int parse_ISO_8601_timestamp(char* timestamp, struct tm* time) {
 }
 
 enum FREQ handle_freq(char* value) {
-    if (strcmp(value, "SECONDLY") == 0) {
-        return SECONDLY;
-    } else if (strcmp(value, "MINUTELY") == 0) {
+    if (strcmp(value, "MINUTELY") == 0) {
         return MINUTELY;
     } else if (strcmp(value, "HOURLY") == 0) {
         return HOURLY;
@@ -331,6 +326,10 @@ enum WKDAY handle_wkst(char* value) {
     }
 }
 
+/*
+ * NOTE: Recurrence Rules with FREQ=SECONDLY will be ignored since
+ * we only store up to minutes in calendar.txt.
+ * */
 struct rrule parse_rrule(char* raw_rrule) {
     struct rrule rrule = {0};
 

@@ -232,7 +232,7 @@ char* stringify_events(struct events events) {
         struct event event = events.events[i];
 
         if (write_index >= length) {
-            debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
+            // debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
             return str_events;
         }
         char time[10] = "\0";
@@ -489,14 +489,23 @@ struct tm get_last_date() {
     return last_date;
 }
 
+/*
+ * Expands the recurring event into an array of events.
+ * On failure, the events array will have length 0.
+ * */
 struct events expand_rrule(struct event event) {
     struct events events = {0};
     init_events(&events);
 
     // Generate a preliminary array of dates using just FREQ, INTERVAL, and COUNT/UNTIL
+    time_t until_time = event.rrule.until.tm_year != 0 ? 
+        mktime(&event.rrule.until) : 0;
+
     struct event cur_event = event;
+    time_t cur_time = mktime(&event.datetime);
     while (true) {
         struct event next_event = cur_event;
+        time_t next_time;
         switch (event.rrule.freq) {
             case YEARLY: 
                 next_event.datetime.tm_year += event.rrule.interval;
@@ -504,16 +513,37 @@ struct events expand_rrule(struct event event) {
             case MONTHLY:
                 next_event.datetime.tm_mon += event.rrule.interval;
                 break;
+            case WEEKLY:
+                next_event.datetime.tm_mday += 7 * event.rrule.interval;
+                break;
             case DAILY:
                 next_event.datetime.tm_mday += event.rrule.interval;
                 break;
+            case HOURLY:
+                next_event.datetime.tm_hour += event.rrule.interval;
+                break;
+            case MINUTELY:
+                next_event.datetime.tm_min += event.rrule.interval;
+                break;
+            case NONE:
+                return events;
         }
-        mktime(&next_event.datetime);
-        append_event(&events, cur_event);
-        cur_event = next_event;
+        next_time = mktime(&next_event.datetime);
+        
+        struct rrule blank_rrule = {0};
+        cur_event.rrule = blank_rrule;
 
-        // if (event.rrule.count != 0 && events.length >= event.rrule.count);
-        // if (event.rrule.until.tm_year != 0)
+        if (event.rrule.count != 0 && events.length >= event.rrule.count) {
+            break;
+        } else if (until_time != 0 && next_time > until_time) {
+            append_event(&events, cur_event);
+            break;
+        }
+
+        append_event(&events, cur_event);
+
+        cur_event = next_event;
+        cur_time = next_time;
     }
          
 
