@@ -80,19 +80,18 @@ void render_schedule(Window* win, bool active) {
         char time_str[20] = "\0";
         
         char suffix[4];
-        if (event.hour < 12) {
+        if (event.datetime.tm_hour < 12) {
             strcpy(suffix, " AM");
         } else {
             strcpy(suffix, " PM");
         }
 
-        int hour = event.hour % 12;
+        int hour = event.datetime.tm_hour % 12;
         if (hour == 0) hour = 12;
 
-        format_time(time_str, hour, event.min);
+        format_time(time_str, hour, event.datetime.tm_min);
 
         if (hour != -1) strcpy(time_str + 5, suffix);
-
         if (i == schedule.selected_event) {
             wattron(win->win, A_REVERSE);
             mvwprintw(win->win, 3 + i * 2, 3, "%s - %s", time_str, event.summary);

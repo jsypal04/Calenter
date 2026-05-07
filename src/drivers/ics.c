@@ -12,7 +12,6 @@
 #include "calendartxt.h"
 #include "../utils/array.h"
 #include <assert.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -199,8 +198,10 @@ ContentLine parse_content_line(Line line) {
  * of the event.
  *
  * Returns 0 if the parsing was successful, otherwise -1.
+ *
+ * TODO: Make tests for this function
  * */
-int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
+int parse_ISO_8601_timestamp(char* timestamp, struct tm* time) {
     if (strlen(timestamp) < 8) return -1;
 
     char  year[10] = "\0";
@@ -214,13 +215,12 @@ int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
     strncpy(day, timestamp + 6, 2);
 
     // TODO: Validate the atoi inputs
-    event->year  = atoi(year);
-    event->month = atoi(month);
-    event->day   = atoi(day);
+    time->tm_year = atoi(year) - 1900;
+    time->tm_mon = atoi(month) - 1;
+    time->tm_mday = atoi(day);
 
     if (strlen(timestamp) == 8) {
-        event->hour = -1;
-        event->min  = -1;
+        mktime(time); 
         return 0;
     }
 
@@ -231,29 +231,14 @@ int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
     strncpy(min, timestamp + 11, 2);
 
     // TODO: Validate the atoi inputs
-    event->hour = atoi(hour);
-    event->min  = atoi(min);
+    time->tm_hour = atoi(hour);
+    time->tm_min = atoi(min);
+    mktime(time);
 
     // Handle timezone conversion
     if (strlen(timestamp) == 16 && timestamp[15] == 'Z') {
-        struct tm utc_time = {0};
-        utc_time.tm_year = event->year - 1900;
-        utc_time.tm_mon  = event->month - 1;
-        utc_time.tm_mday = event->day;
-        utc_time.tm_hour = event->hour;
-        utc_time.tm_min  = event->min;
-        mktime(&utc_time);
-
-        time_t t = timegm(&utc_time);
-
-        struct tm local_time = {0};
-        localtime_r(&t, &local_time);
-
-        event->year  = local_time.tm_year + 1900;
-        event->month = local_time.tm_mon + 1;
-        event->day   = local_time.tm_mday;
-        event->hour  = local_time.tm_hour;
-        event->min   = local_time.tm_min;
+        time_t t = timegm(time);
+        localtime_r(&t, time);
     }
 
     return 0;
@@ -361,7 +346,7 @@ struct rrule parse_rrule(char* raw_rrule) {
 
         char name[32] = "\0";
         strncpy(name, raw_rrule + start, index - start);
-        printf("\tname = %s\n", name);
+        // printf("\tname = %s\n", name);
         
         index++;
         start = index;
@@ -373,12 +358,14 @@ struct rrule parse_rrule(char* raw_rrule) {
         char* value = malloc(sizeof(char) * 2 * (index - start));
         memset(value, '\0', sizeof(char) * 2 * (index - start));
         strncpy(value, raw_rrule + start, index - start);
-        printf("\tvalue = %s\n", value);
+        // printf("\tvalue = %s\n", value);
 
         if (strcmp(name, "FREQ") == 0) {
             rrule.freq = handle_freq(value);
         } else if (strcmp(name, "UNTIL") == 0) {
-            // TODO: Implement
+            struct tm timestamp = {0};
+            parse_ISO_8601_timestamp(value, &timestamp);
+            rrule.until = timestamp;
         } else if (strcmp(name, "COUNT") == 0) {
             rrule.count = atoi(value);
         } else if (strcmp(name, "INTERVAL") == 0) {
@@ -404,6 +391,8 @@ struct rrule parse_rrule(char* raw_rrule) {
         } else if (strcmp(name, "WKST") == 0) {
             rrule.wkst = handle_wkst(value);
         }
+
+        if (rrule.interval == 0) rrule.interval = 1;
 
         free(value);
 
@@ -448,11 +437,16 @@ struct events parse_ics(char *path) {
             cline = parse_content_line(line);
 
             if (strcmp(cline.name, "DTSTART") == 0) {
-                parse_ISO_8601_timestamp(cline.value, &event);
+                struct tm timestamp = {0};
+                parse_ISO_8601_timestamp(cline.value, &timestamp);
+                event.datetime = timestamp;
+                if (strlen(cline.value) < 15) {
+                    event.all_day = true;
+                }
             } else if (strcmp(cline.name, "SUMMARY") == 0) {
                 event.summary = strdup(cline.value);
             } else if (strcmp(cline.name, "RRULE") == 0) {
-                printf("RRULE = %s\n", cline.value);
+                // printf("RRULE = %s\n", cline.value);
                 event.rrule = parse_rrule(cline.value);
             }
         }
@@ -465,13 +459,13 @@ struct events parse_ics(char *path) {
     return events;
 }
 
-int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("Usage: ./ics path/to/ics/file\n");
-    return 0;
-  }
-
-  parse_ics(argv[1]);
-
-  return 0;
-}
+// int main(int argc, char *argv[]) {
+//   if (argc != 2) {
+//     printf("Usage: ./ics path/to/ics/file\n");
+//     return 0;
+//   }
+//
+//   parse_ics(argv[1]);
+//
+//   return 0;
+// }

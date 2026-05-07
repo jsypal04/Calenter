@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include "calenter.h"
-#include "drivers/calendartxt.h"
 
 enum input_tag {
     HOUR,
@@ -46,27 +46,25 @@ struct event add_event_modal(Window** windows, struct event* event) {
     init_inputs(&inputs, modal, width);
 
     if (event != NULL) {
-        assert(event->hour < 24);
-        assert(event->min < 60);
         assert(strlen(event->summary) < 2000);
 
-        if (event->hour >= 12) {
+        if (event->datetime.tm_hour >= 12) {
             strcpy(inputs.suffix.content, "PM");
         } else {
             strcpy(inputs.suffix.content, "AM");
         }
 
-        int hour = event->hour != 12 ? event->hour % 12 : 12;
+        int hour = event->datetime.tm_hour != 12 ? event->datetime.tm_hour % 12 : 12;
 
         char* hour_fmt_str = (hour < 10) ? "0%d" : "%d";
-        char* min_fmt_str = (event->min < 10) ? "0%d" : "%d";
+        char* min_fmt_str = (event->datetime.tm_min < 10) ? "0%d" : "%d";
 
-        if (event->hour == -1) {
+        if (event->all_day) {
             inputs.all_day = true;
             inputs.active_input = SUMMARY;
         } else {
             sprintf(inputs.hour.content, hour_fmt_str, hour);
-            sprintf(inputs.min.content, min_fmt_str, event->min);
+            sprintf(inputs.min.content, min_fmt_str, event->datetime.tm_min);
 
             inputs.hour.index = strlen(inputs.hour.content);
             inputs.min.index = strlen(inputs.min.content);
@@ -131,12 +129,9 @@ struct event add_event_modal(Window** windows, struct event* event) {
     struct event new_event = {0};
 
     if (ch == 10) {
-        if (inputs.all_day) {
-            new_event.hour = -1;
-            new_event.min  = -1;
-        } else {
-            new_event.hour = atoi(inputs.hour.content);
-            new_event.min = atoi(inputs.min.content);
+        if (!inputs.all_day) {
+            new_event.datetime.tm_hour = atoi(inputs.hour.content);
+            new_event.datetime.tm_min = atoi(inputs.min.content);
         }
 
         trim(inputs.summary.content);
@@ -144,7 +139,7 @@ struct event add_event_modal(Window** windows, struct event* event) {
     }
 
     if (strcmp(inputs.suffix.content, "PM") == 0 && !inputs.all_day) 
-        new_event.hour += 12;
+        new_event.datetime.tm_hour += 12;
 
     werase(modal);
     wrefresh(modal);

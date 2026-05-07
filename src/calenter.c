@@ -31,6 +31,7 @@ void debug_log(const char* format, ...) {
 #endif
 }
 
+
 void handle_key_press(Window** active_win, int key);
 
 Window* windows[NUM_WINDOWS];
@@ -275,15 +276,25 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
 
                 if (new_event.summary != NULL) {
-                    new_event.year = active_win->widgets[sched_index].widget.schedule.year;
-                    new_event.month = active_win->widgets[sched_index].widget.schedule.month;
-                    new_event.day = active_win->widgets[sched_index].widget.schedule.day;
+                    new_event.datetime.tm_year = active_win->widgets[sched_index].widget.schedule.year - 1900;
+                    new_event.datetime.tm_mon = active_win->widgets[sched_index].widget.schedule.month - 1;
+                    new_event.datetime.tm_mday = active_win->widgets[sched_index].widget.schedule.day;
+                    mktime(&new_event.datetime);
 
-                    add_event(new_event, new_event.year, new_event.month, new_event.day);
+                    add_event(
+                            new_event, 
+                            new_event.datetime.tm_year + 1900, 
+                            new_event.datetime.tm_mon + 1, 
+                            new_event.datetime.tm_mday
+                    );
 
                     free_events(active_win->widgets[sched_index].widget.schedule.events);
                     active_win->widgets[sched_index].widget.schedule.events =
-                        get_events(new_event.year, new_event.month, new_event.day);
+                        get_events(
+                                new_event.datetime.tm_year + 1900, 
+                                new_event.datetime.tm_mon + 1, 
+                                new_event.datetime.tm_mday
+                        );
 
                     render_schedule(active_win, true);
                 }

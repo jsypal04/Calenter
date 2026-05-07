@@ -13,14 +13,8 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
+#include "types.h"
 
-enum type {
-    INT,
-    FLOAT,
-    STRING,
-};
-
-typedef struct array_t Array;
 
 /*
  * Creates a new array of the given type with the given capacity

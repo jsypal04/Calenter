@@ -2,62 +2,8 @@
 #define CALENDARTXT_H
 
 #include <stddef.h>
-#include "../utils/array.h"
-
-enum FREQ {
-    NONE,
-    SECONDLY,
-    MINUTELY,
-    HOURLY,
-    DAILY,
-    WEEKLY,
-    MONTHLY,
-    YEARLY
-};
-
-enum WKDAY {
-    SU,
-    MO,
-    TU,
-    WE,
-    TH,
-    FR,
-    SA
-};
-
-struct rrule {
-    enum FREQ freq;
-    char until[30]; // ISO-8601
-    int count;
-    int interval;
-    Array* bysecond;
-    Array* byminute;
-    Array* byhour;
-    Array* byday;
-    Array* bymonthday;
-    Array* byyearday;
-    Array* byweekno;
-    Array* bymonth;
-    Array* bysetpos;
-    enum WKDAY wkst;
-};
-
-// for all day events, hour == min == -1
-struct event {
-  int year;
-  int month;
-  int day;
-  int hour;
-  int min;
-  char* summary;
-  struct rrule rrule;
-};
-
-struct events {
-  size_t size;
-  size_t length;
-  struct event* events;
-};
+#include <time.h>
+#include "../utils/types.h"
 
 /*
  * Gets an array of all the events for a given day from calendar.txt
@@ -68,6 +14,13 @@ struct events get_events(int year, int month, int day);
  * Writes the event to calendar.txt. Returns 0 on success, -1 on failure.
  */
 int add_event(struct event event, int year, int month, int day);
+
+/*
+ * Generates an array of events based on a single repeating event
+ *
+ * TODO: Not implemented yet.
+ * */
+struct events expand_rrule(struct event event);
 
 /*
  * Deletes an event from calendar.txt. Returns 0 on success, -1 on failure.
