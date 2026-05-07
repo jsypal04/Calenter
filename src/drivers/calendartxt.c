@@ -232,7 +232,7 @@ char* stringify_events(struct events events) {
         struct event event = events.events[i];
 
         if (write_index >= length) {
-            // debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
+            debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
             return str_events;
         }
         char time[10] = "\0";
@@ -502,7 +502,6 @@ struct events expand_rrule(struct event event) {
         mktime(&event.rrule.until) : 0;
 
     struct event cur_event = event;
-    time_t cur_time = mktime(&event.datetime);
     while (true) {
         struct event next_event = cur_event;
         time_t next_time;
@@ -543,7 +542,6 @@ struct events expand_rrule(struct event event) {
         append_event(&events, cur_event);
 
         cur_event = next_event;
-        cur_time = next_time;
     }
          
 
