@@ -279,6 +279,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                     new_event.datetime.tm_year = active_win->widgets[sched_index].widget.schedule.year - 1900;
                     new_event.datetime.tm_mon = active_win->widgets[sched_index].widget.schedule.month - 1;
                     new_event.datetime.tm_mday = active_win->widgets[sched_index].widget.schedule.day;
+                    new_event.datetime.tm_isdst = -1;
                     mktime(&new_event.datetime);
 
                     add_event(

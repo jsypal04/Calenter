@@ -50,6 +50,7 @@ This is a list of features I want to add.
 
 - [x] Ability to add all day events
 - [ ] Repeat rules
+    - [ ] Store event date-time data as a `struct tm`
 - [ ] Multi-day all day events
 - [ ] Native ics parser
 - [ ] Google Calendar Integrations (read and write)

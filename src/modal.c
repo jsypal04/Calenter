@@ -132,14 +132,16 @@ struct event add_event_modal(Window** windows, struct event* event) {
         if (!inputs.all_day) {
             new_event.datetime.tm_hour = atoi(inputs.hour.content);
             new_event.datetime.tm_min = atoi(inputs.min.content);
+
+            if (strcmp(inputs.suffix.content, "PM") == 0) 
+                new_event.datetime.tm_hour += 12;
+        } else {
+            new_event.all_day = true;
         }
 
         trim(inputs.summary.content);
         new_event.summary = strdup(inputs.summary.content);
     }
-
-    if (strcmp(inputs.suffix.content, "PM") == 0 && !inputs.all_day) 
-        new_event.datetime.tm_hour += 12;
 
     werase(modal);
     wrefresh(modal);

@@ -17,6 +17,8 @@
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 
+void debug_log(const char *format, ...);
+
 /*
  * Parses the string event from calendar.txt into a `struct event`
  * This function allocates memory for the event.
@@ -70,10 +72,12 @@ struct events get_events(int year, int month, int day) {
 
     char* token = strtok(trimmed_line, ",");
     while (token != NULL) {
-        struct event event = parse_event(token);
+        struct event event = parse_event(token);        
+
         event.datetime.tm_year = year - 1900;
         event.datetime.tm_mon = month - 1;
         event.datetime.tm_mday = day;
+        event.datetime.tm_isdst = -1;
         mktime(&event.datetime);
 
         append_event(&events, event);
@@ -228,10 +232,15 @@ char* stringify_events(struct events events) {
         struct event event = events.events[i];
 
         if (write_index >= length) {
+            debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
             return str_events;
         }
-        char time[10];
-        format_time(time, event.datetime.tm_hour + 1900, event.datetime.tm_min);
+        char time[10] = "\0";
+        if (!event.all_day) {
+            format_time(time, event.datetime.tm_hour, event.datetime.tm_min);
+        } else {
+            sprintf(time, "ALL DAY");
+        }
         if (i < events.length - 1) {
             sprintf(str_events + write_index, "%s - %s,", time, event.summary);
         } else {
@@ -362,9 +371,7 @@ int date_cmp(int year1, int month1, int day1,
 }
 
 void format_time(char* buffer, int hour, int min) {
-    if (hour == -1) {
-        sprintf(buffer, "ALL DAY");
-    } else if (hour < 10 && min < 10) {
+    if (hour < 10 && min < 10) {
         sprintf(buffer, "0%d:0%d", hour, min);
     } else if (hour < 10 && min >= 10) {
         sprintf(buffer, "0%d:%d", hour, min);

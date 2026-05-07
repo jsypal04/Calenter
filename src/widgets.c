@@ -78,20 +78,24 @@ void render_schedule(Window* win, bool active) {
     for (int i = 0; i < schedule.events.length; i++) {
         struct event event = schedule.events.events[i];
         char time_str[20] = "\0";
-        
-        char suffix[4];
-        if (event.datetime.tm_hour < 12) {
-            strcpy(suffix, " AM");
+
+        if (event.all_day) {
+            sprintf(time_str, "ALL DAY"); 
         } else {
-            strcpy(suffix, " PM");
+            char suffix[4] = "\0";
+            if (event.datetime.tm_hour < 12) {
+                strcpy(suffix, " AM");
+            } else {
+                strcpy(suffix, " PM");
+            }
+
+            int hour = event.datetime.tm_hour % 12;
+            if (hour == 0) hour = 12;
+            
+            format_time(time_str, hour, event.datetime.tm_min);
+            if (hour != -1) strcpy(time_str + 5, suffix);
         }
 
-        int hour = event.datetime.tm_hour % 12;
-        if (hour == 0) hour = 12;
-
-        format_time(time_str, hour, event.datetime.tm_min);
-
-        if (hour != -1) strcpy(time_str + 5, suffix);
         if (i == schedule.selected_event) {
             wattron(win->win, A_REVERSE);
             mvwprintw(win->win, 3 + i * 2, 3, "%s - %s", time_str, event.summary);
