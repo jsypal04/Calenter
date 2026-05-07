@@ -465,13 +465,13 @@ struct events parse_ics(char *path) {
     return events;
 }
 
-int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("Usage: ./ics path/to/ics/file\n");
-    return 0;
-  }
-
-  parse_ics(argv[1]);
-
-  return 0;
-}
+// int main(int argc, char *argv[]) {
+//   if (argc != 2) {
+//     printf("Usage: ./ics path/to/ics/file\n");
+//     return 0;
+//   }
+//
+//   parse_ics(argv[1]);
+//
+//   return 0;
+// }
