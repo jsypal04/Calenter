@@ -1,10 +1,7 @@
 /*
  * calendartxt.c
  *
- * This file is a driver for interacting with calendar.txt. The
- * two main functions are get_events (for getting the event of
- * a given day).
- *
+ * This file is a driver for interacting with calendar.txt.  
  */
 
 #include <assert.h>
@@ -17,6 +14,24 @@
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 
+#define LIMIT -1
+#define EXPAND 1
+#define NA 0
+
+
+// Table that is used to determine how to apply a BYxxx rule
+int BYxxx_Table[9][7] = {
+    {NA, LIMIT, LIMIT, LIMIT, LIMIT, LIMIT, EXPAND},
+    {NA, NA, NA, NA, NA, NA, EXPAND},
+    {NA, LIMIT, LIMIT, NA, NA, NA, EXPAND},
+    {NA, LIMIT, LIMIT, LIMIT, NA, EXPAND, EXPAND},
+    {NA, LIMIT, LIMIT, LIMIT, EXPAND, NA, NA}, // Look into notes 1 and 2 in the RFC
+    {NA, LIMIT, LIMIT, EXPAND, EXPAND, EXPAND, EXPAND},
+    {NA, LIMIT, EXPAND, EXPAND, EXPAND, EXPAND, EXPAND},
+    {NA, EXPAND, EXPAND, EXPAND, EXPAND, EXPAND, EXPAND},
+    {NA, LIMIT, LIMIT, LIMIT, LIMIT, LIMIT, LIMIT}
+};
+
 void debug_log(const char *format, ...);
 
 /*
@@ -27,7 +42,6 @@ struct event parse_event(char* raw_event);
 
 char* get_calendar_path();
 int write_events(struct events events, int year, int month, int day);
-int remove_event(struct events* events, struct event event);
 char* stringify_events(struct events events);
 
 /**
@@ -232,7 +246,7 @@ char* stringify_events(struct events events) {
         struct event event = events.events[i];
 
         if (write_index >= length) {
-            debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
+            // debug_log("Did not allocate enough space for events. Writing truncated events list.\n");
             return str_events;
         }
         char time[10] = "\0";
@@ -489,6 +503,10 @@ struct tm get_last_date() {
     return last_date;
 }
 
+int BYxxx_Comp(union element e) {
+    return e.b.type;
+}
+
 /*
  * Expands the recurring event into an array of events.
  * On failure, the events array will have length 0.
@@ -500,6 +518,8 @@ struct events expand_rrule(struct event event) {
     // Generate a preliminary array of dates using just FREQ, INTERVAL, and COUNT/UNTIL
     time_t until_time = event.rrule.until.tm_year != 0 ? 
         mktime(&event.rrule.until) : 0;
+
+    assert(until_time != 0 || event.rrule.count != 0);
 
     struct event cur_event = event;
     while (true) {
@@ -535,18 +555,27 @@ struct events expand_rrule(struct event event) {
         if (event.rrule.count != 0 && events.length >= event.rrule.count) {
             break;
         } else if (until_time != 0 && next_time > until_time) {
+            cur_event.summary = strdup(cur_event.summary);
             append_event(&events, cur_event);
             break;
         }
 
+        cur_event.summary = strdup(cur_event.summary);
         append_event(&events, cur_event);
 
         cur_event = next_event;
     }
-         
+
+    // TODO: Implement applying BYxxx Rules
 
     // Process each BYxxx rule
-
+    // if (array_len(event.rrule.BYxxx_Rules) == 0) return events;
+    //
+    // sort(event.rrule.BYxxx_Rules, BYxxx_Comp);
+    //
+    // for (int i = 0; i < array_len(event.rrule.BYxxx_Rules); i++) {
+    //     BYxxx_Rule rule = get_BYxxx_Rule(event.rrule.BYxxx_Rules, i);
+    // }
 
     return events;
 }

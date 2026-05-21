@@ -29,10 +29,12 @@ typedef enum _ERRNO {
     NO_SYNC_SCRIPT_PATH,
     NO_REMOTE,
     CURL_FAILED,
+    NO_EVENTS,
 } SYNC_ERR;
 
 char* get_sync_script_path();
 size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream);
+int update_calendartxt(char* ics_file);
 
 int sync_calendar() {
     Config config = read_config();
@@ -86,9 +88,7 @@ int sync_calendar_curl() {
     curl_easy_cleanup(curl);
     curl_global_cleanup();
 
-    struct events events = parse_ics(SYNC_TMP_FILE);
-
-    return SUCCESS;
+    return update_calendartxt(SYNC_TMP_FILE);
 }
 
 size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream) {
@@ -111,4 +111,50 @@ char* get_sync_script_path() {
     sprintf(sync_script_path, "%s%s", home, SYNC_SCRIPT_PATH);
 
     return sync_script_path;
+}
+
+int update_calendartxt(char* ics_file) {
+    struct events events = parse_ics(ics_file);
+    if (events.length == 0) return NO_EVENTS;
+
+    // for (int i = 0; i < events.length; i++) {
+    //     struct event event = events.events[i];
+    //     printf("%d-%d-%d %d:%d - %s\n", 
+    //             event.datetime.tm_mon + 1, event.datetime.tm_mday, event.datetime.tm_year + 1900,
+    //             event.datetime.tm_hour, event.datetime.tm_min, event.summary
+    //     );
+    // }
+    // printf("---------------------\n");
+
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+        if (event.rrule.freq == NONE) continue;
+
+        remove_event(&events, event);
+
+        struct events expanded_event = expand_rrule(event);
+        for (int j = 0; j < expanded_event.length; j++) {
+            insert_event(&events, expanded_event.events[j]);
+        }
+        free(expanded_event.events);
+        expanded_event.events = NULL;
+    } 
+
+    // for (int i = 0; i < events.length; i++) {
+    //     struct event event = events.events[i];
+    //     printf("%d-%d-%d %d:%d - %s\n", 
+    //             event.datetime.tm_mon + 1, event.datetime.tm_mday, event.datetime.tm_year + 1900,
+    //             event.datetime.tm_hour, event.datetime.tm_min, event.summary
+    //     );
+    // }
+
+    // Write all events to calendar.txt
+
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+        int result = add_event(event, event.datetime.tm_year + 1900,
+                event.datetime.tm_mon + 1, event.datetime.tm_mday); 
+    }
+
+    return SUCCESS;
 }

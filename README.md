@@ -66,3 +66,6 @@ This is a list of known bugs.
 1. If you try to go to a day with fewer events than the current day (via the calendar widget)
 the selector does not reset to something in the smaller range.
 2. Something is up with creating events that are at midnight.
+3. If lines of an ICS file end in LF instead of CRLF it causes a seg fault
+    - This is not really a bug since by the RFC, ICS file lines must end int CRLF
+      but it would probably be good to add fault handling.

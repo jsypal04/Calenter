@@ -78,6 +78,7 @@ void expand_str_array(char **arr, int length) {
 /*
  * Gets the next line in the ics file (accounting for line folding).
  * Returns the number of characters read or EOF if the end of file was reached.
+ * Return -2 if the parsing failed.
  * */
 int get_line(Line *line) {
     int buf_len = 2048;
@@ -89,7 +90,8 @@ int get_line(Line *line) {
 
     // I know this is probably dumb to have while (true) loop but I don't care
     while (true) {
-      while ((c = fgetc(line->ics_file)) != '\r') {
+      c = fgetc(line->ics_file);
+      while (c != '\r' && c != '\n') {
         if (c == EOF)
           return EOF;
 
@@ -108,9 +110,12 @@ int get_line(Line *line) {
 
         buffer[index] = c;
         index++;
+        c = fgetc(line->ics_file);
       }
 
-      c = fgetc(line->ics_file); // takes care of the newline
+      if (c == '\r') {
+        c = fgetc(line->ics_file); // takes care of the newline
+      }
       c = fgetc(line->ics_file);
       if (c != ' ' && c != '\t') {
           break;
@@ -333,6 +338,8 @@ enum WKDAY handle_wkst(char* value) {
 struct rrule parse_rrule(char* raw_rrule) {
     struct rrule rrule = {0};
 
+    rrule.BYxxx_Rules = new_array(5, BYXXX_RULE);
+
     int start = 0;
     int index = 0;
     char ch = raw_rrule[0];
@@ -370,23 +377,50 @@ struct rrule parse_rrule(char* raw_rrule) {
         } else if (strcmp(name, "INTERVAL") == 0) {
             rrule.interval = atoi(value);
         } else if (strcmp(name, "BYSECOND") == 0) {
-            rrule.bysecond = handle_by_numeric_time_unit(value);
-        } else if (strcmp(name, "BYMINTUTE") == 0) {
-            rrule.byminute = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYSECOND;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
+        } else if (strcmp(name, "BYMINUTE") == 0) {
+            BYxxx_Rule rule = {0};
+            rule.type = BYMINUTE;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYHOUR") == 0) {
-            rrule.byhour = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYHOUR;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYDAY") == 0) {
-            rrule.byday = handle_by_categorical_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYDAY;
+            rule.values = handle_by_categorical_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYMONTHDAY") == 0) {
-            rrule.bymonthday = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYMONTHDAY;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYYEARDAY") == 0) {
-            rrule.byyearday = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYYEARDAY;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYWEEKNO") == 0) {
-            rrule.byweekno = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYWEEKNO;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYMONTH") == 0) {
-            rrule.bymonth = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYMONTH;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYSETPOS") == 0) {
-            rrule.bysetpos = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYSETPOS;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "WKST") == 0) {
             rrule.wkst = handle_wkst(value);
         }
@@ -397,6 +431,11 @@ struct rrule parse_rrule(char* raw_rrule) {
 
         index++;
         start = index;
+    }
+
+    if (array_len(rrule.BYxxx_Rules) == 0) {
+        free_array(rrule.BYxxx_Rules);
+        rrule.BYxxx_Rules = NULL;
     }
 
     return rrule;
@@ -413,7 +452,11 @@ struct events parse_ics(char *path) {
     time_t t = time(NULL);
     localtime_r(&t, &today);
     
-    get_line(&line);
+    if (get_line(&line) == -2) {
+        free_events(events);
+        memset(&events, 0, sizeof(struct events));
+        return events;
+    }
     ContentLine cline = parse_content_line(line);
 
     int eof_marker = 0;
@@ -422,6 +465,12 @@ struct events parse_ics(char *path) {
         while (eof_marker != EOF && (strcmp(cline.name, "BEGIN") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
             free_content_line(&cline);
             eof_marker = get_line(&line);
+            if (eof_marker == -2) {
+                free_events(events);
+                memset(&events, 0, sizeof(struct events));
+                return events;
+            }
+
             cline = parse_content_line(line);
         }
 
@@ -433,6 +482,11 @@ struct events parse_ics(char *path) {
         while (eof_marker != EOF && (strcmp(cline.name, "END") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
             free_content_line(&cline);
             eof_marker = get_line(&line);
+            if (eof_marker == -2) {
+                free_events(events);
+                memset(&events, 0, sizeof(struct events));
+                return events;
+            }
             cline = parse_content_line(line);
 
             if (strcmp(cline.name, "DTSTART") == 0) {

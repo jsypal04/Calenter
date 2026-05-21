@@ -48,6 +48,10 @@ void append_event(struct events* events, struct event new_event);
  */
 void insert_event(struct events* events, struct event new_event);
 
+/*
+ * Removes the given event from the given events array
+ * */
+int remove_event(struct events* events, struct event event);
 
 /*
  * Frees the fields that are dynamically allocated in get events

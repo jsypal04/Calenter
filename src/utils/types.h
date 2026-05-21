@@ -4,14 +4,37 @@
 #include <time.h>
 #include <stdbool.h>
 
+typedef struct array_t Array;
+
+typedef struct {
+    enum {
+        BYMONTH,
+        BYWEEKNO,
+        BYYEARDAY,
+        BYMONTHDAY,
+        BYDAY,
+        BYHOUR,
+        BYMINUTE,
+        BYSECOND,
+        BYSETPOS
+    } type;
+    Array* values;
+} BYxxx_Rule;
+
 enum type {
     INT,
     FLOAT,
     STRING,
-    DATETIME
+    BYXXX_RULE,
 };
 
-typedef struct array_t Array;
+union element {
+    int i;
+    float f;
+    char* s;
+    BYxxx_Rule b;
+};
+
 
 enum FREQ {
     NONE,
@@ -33,24 +56,16 @@ enum WKDAY {
     SA
 };
 
+
 struct rrule {
     enum FREQ freq;
     struct tm until;
     int count;
     int interval;
-    Array* bysecond;
-    Array* byminute;
-    Array* byhour;
-    Array* byday;
-    Array* bymonthday;
-    Array* byyearday;
-    Array* byweekno;
-    Array* bymonth;
-    Array* bysetpos;
+    Array* BYxxx_Rules;
     enum WKDAY wkst;
 };
 
-// for all day events, hour == min == -1
 struct event {
     bool all_day;
     struct tm datetime;
