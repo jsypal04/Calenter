@@ -2,8 +2,9 @@
 #include <ncurses.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <libnotify/notify.h>
 #include "calenter.h"
-#include "drivers/sync.h"
+#include "utils/sync.h"
 
 
 void debug_log(const char* format, ...) {
@@ -38,6 +39,7 @@ Window* windows[NUM_WINDOWS];
 
 int main() {
     debug_log("Starting UI...\n");
+    notify_init("Calenter");
 
     Window* active_win = NULL;
     int active_win_index = 0;
@@ -114,6 +116,7 @@ int main() {
     free_win(windows[1]);
     endwin();
 
+    notify_uninit();
     return 0;
 }
 
@@ -283,17 +286,17 @@ void handle_key_press(Window** active_win_ref, int key) {
                     mktime(&new_event.datetime);
 
                     add_event(
-                            new_event, 
-                            new_event.datetime.tm_year + 1900, 
-                            new_event.datetime.tm_mon + 1, 
+                            new_event,
+                            new_event.datetime.tm_year + 1900,
+                            new_event.datetime.tm_mon + 1,
                             new_event.datetime.tm_mday
                     );
 
                     free_events(active_win->widgets[sched_index].widget.schedule.events);
                     active_win->widgets[sched_index].widget.schedule.events =
                         get_events(
-                                new_event.datetime.tm_year + 1900, 
-                                new_event.datetime.tm_mon + 1, 
+                                new_event.datetime.tm_year + 1900,
+                                new_event.datetime.tm_mon + 1,
                                 new_event.datetime.tm_mday
                         );
 

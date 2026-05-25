@@ -9,6 +9,8 @@
  * */
 
 
+#include <libnotify/notification.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,9 +18,11 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "sync.h"
-#include "calendartxt.h"
+#include "../../common/calendartxt.h"
 #include "config.h"
-#include "ics.h"
+#include "glib-object.h"
+#include "../../common/ics.h"
+#include "../calenter.h"
 
 #define SYNC_SCRIPT "fetch_calendar.bash"
 #define SYNC_SCRIPT_PATH "/.calendar/scripts/fetch_calendar.bash"
@@ -32,9 +36,10 @@ typedef enum _ERRNO {
     NO_EVENTS,
 } SYNC_ERR;
 
-char* get_sync_script_path();
+char*  get_sync_script_path();
+void*  sync_calendar_curl(void* ptr);
 size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream);
-int update_calendartxt(char* ics_file);
+int    update_calendartxt(char* ics_file);
 
 int sync_calendar() {
     Config config = read_config();
@@ -56,7 +61,12 @@ int sync_calendar() {
     return SUCCESS;
 }
 
-int sync_calendar_curl() {
+void sync_calendar_wrapper() {
+    pthread_t syncer_thread;
+    pthread_create(&syncer_thread, NULL, sync_calendar_curl, NULL);
+}
+
+void* sync_calendar_curl(void* ptr) {
     CURL* curl;
     FILE* output_file;
     CURLcode res;
@@ -67,11 +77,11 @@ int sync_calendar_curl() {
     if (!curl) {
         curl_easy_cleanup(curl);
         curl_global_cleanup();
-        return CURL_FAILED;
+        return NULL;
     };
 
     Config config = read_config();
-    if (config.remote_url == NULL) return NO_REMOTE;
+    if (config.remote_url == NULL) return NULL;
 
     output_file = fopen(SYNC_TMP_FILE, "w");
 
@@ -81,14 +91,25 @@ int sync_calendar_curl() {
 
     res = curl_easy_perform(curl);
 
-    if (res != CURLE_OK) return CURL_FAILED;
+    if (res != CURLE_OK) return NULL;
 
 
     fclose(output_file);
     curl_easy_cleanup(curl);
     curl_global_cleanup();
 
-    return update_calendartxt(SYNC_TMP_FILE);
+    debug_log("About to run update_calendartxt\n");
+    update_calendartxt(SYNC_TMP_FILE);
+    debug_log("Ran update_calendartxt\n");
+
+    NotifyNotification* noti = notify_notification_new(
+        "Sync Successful",
+        "Calenter successfully sank with your Google Calendar.",
+        "dialog-information"
+    );
+    notify_notification_show(noti, NULL);
+    g_object_unref(G_OBJECT(noti));
+    return NULL;
 }
 
 size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream) {
@@ -114,18 +135,21 @@ char* get_sync_script_path() {
 }
 
 int update_calendartxt(char* ics_file) {
+    debug_log("running line %d\n", __LINE__);
     struct events events = parse_ics(ics_file);
     if (events.length == 0) return NO_EVENTS;
+    debug_log("running line %d\n", __LINE__);
 
     // for (int i = 0; i < events.length; i++) {
     //     struct event event = events.events[i];
-    //     printf("%d-%d-%d %d:%d - %s\n", 
+    //     printf("%d-%d-%d %d:%d - %s\n",
     //             event.datetime.tm_mon + 1, event.datetime.tm_mday, event.datetime.tm_year + 1900,
     //             event.datetime.tm_hour, event.datetime.tm_min, event.summary
     //     );
     // }
     // printf("---------------------\n");
 
+    debug_log("running line %d\n", __LINE__);
     for (int i = 0; i < events.length; i++) {
         struct event event = events.events[i];
         if (event.rrule.freq == NONE) continue;
@@ -138,11 +162,12 @@ int update_calendartxt(char* ics_file) {
         }
         free(expanded_event.events);
         expanded_event.events = NULL;
-    } 
+    }
+    debug_log("running line %d\n", __LINE__);
 
     // for (int i = 0; i < events.length; i++) {
     //     struct event event = events.events[i];
-    //     printf("%d-%d-%d %d:%d - %s\n", 
+    //     printf("%d-%d-%d %d:%d - %s\n",
     //             event.datetime.tm_mon + 1, event.datetime.tm_mday, event.datetime.tm_year + 1900,
     //             event.datetime.tm_hour, event.datetime.tm_min, event.summary
     //     );
@@ -150,11 +175,14 @@ int update_calendartxt(char* ics_file) {
 
     // Write all events to calendar.txt
 
+    debug_log("length: %d\n", events.length);
     for (int i = 0; i < events.length; i++) {
+        debug_log("i: %d\n", i);
         struct event event = events.events[i];
-        int result = add_event(event, event.datetime.tm_year + 1900,
-                event.datetime.tm_mon + 1, event.datetime.tm_mday); 
+        add_event(event, event.datetime.tm_year + 1900,
+                event.datetime.tm_mon + 1, event.datetime.tm_mday);
     }
+    debug_log("running line %d\n", __LINE__);
 
     return SUCCESS;
 }

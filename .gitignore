@@ -3,7 +3,9 @@ __pycache__
 build/
 logs/
 config/
+ics_files/
 
 calendar.txt
 codebook.toml
 *.ics
+compile_commands.json

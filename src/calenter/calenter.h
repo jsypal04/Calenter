@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <ncurses.h>
-#include "drivers/calendartxt.h"
+#include "../common/calendartxt.h"
 
 #define DEBUG
 #define ACTIVE_COLOR_PAIR       1

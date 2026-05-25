@@ -7,7 +7,7 @@
  */
 
 #include "calendartxt.h"
-#include "../utils/array.h"
+#include "array.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -222,7 +222,7 @@ int parse_ISO_8601_timestamp(char* timestamp, struct tm* time) {
     time->tm_mday = atoi(day);
 
     if (strlen(timestamp) == 8) {
-        mktime(time); 
+        mktime(time);
         return 0;
     }
 
@@ -270,7 +270,7 @@ Array* handle_by_numeric_time_unit(char* value) {
     int start = 0;
     for (int i = 0; i < strlen(value) - 1; i++) {
         if (value[i] != ',') continue;
-        
+
         assert(i - start <= 4);
 
         char tmp[5] = "\0";
@@ -353,7 +353,7 @@ struct rrule parse_rrule(char* raw_rrule) {
         char name[32] = "\0";
         strncpy(name, raw_rrule + start, index - start);
         // printf("\tname = %s\n", name);
-        
+
         index++;
         start = index;
         while (ch != ';' && ch != '\0') {
@@ -451,7 +451,7 @@ struct events parse_ics(char *path) {
     struct tm today = {0};
     time_t t = time(NULL);
     localtime_r(&t, &today);
-    
+
     if (get_line(&line) == -2) {
         free_events(events);
         memset(&events, 0, sizeof(struct events));

@@ -1,7 +1,7 @@
 /*
  * calendartxt.c
  *
- * This file is a driver for interacting with calendar.txt.  
+ * This file is a driver for interacting with calendar.txt.
  */
 
 #include <assert.h>
@@ -86,7 +86,7 @@ struct events get_events(int year, int month, int day) {
 
     char* token = strtok(trimmed_line, ",");
     while (token != NULL) {
-        struct event event = parse_event(token);        
+        struct event event = parse_event(token);
 
         event.datetime.tm_year = year - 1900;
         event.datetime.tm_mon = month - 1;
@@ -148,8 +148,8 @@ struct event parse_event(char* raw_event) {
 
 int delete_event(struct event event) {
     struct events events = get_events(
-            event.datetime.tm_year + 1900, 
-            event.datetime.tm_mon + 1, 
+            event.datetime.tm_year + 1900,
+            event.datetime.tm_mon + 1,
             event.datetime.tm_mday);
 
     remove_event(&events, event);
@@ -301,9 +301,9 @@ void insert_event(struct events* events, struct event new_event) {
     while (
         index > 0 &&
         time_cmp(
-            new_event.datetime.tm_hour, 
-            new_event.datetime.tm_min, 
-            events->events[index - 1].datetime.tm_hour, 
+            new_event.datetime.tm_hour,
+            new_event.datetime.tm_min,
+            events->events[index - 1].datetime.tm_hour,
             events->events[index - 1].datetime.tm_min
         ) < 0
     ) {
@@ -435,7 +435,7 @@ struct tm get_last_date() {
         return last_date;
     }
 
-    long pos = ftell(calendar); 
+    long pos = ftell(calendar);
     pos--;
     while (pos >= 0) {
          fseek(calendar, pos, SEEK_SET);
@@ -461,7 +461,7 @@ struct tm get_last_date() {
 
         pos--;
     }
-    
+
     if (pos < 0) {
         pos = 0;
     }
@@ -515,18 +515,19 @@ struct events expand_rrule(struct event event) {
     struct events events = {0};
     init_events(&events);
 
-    // Generate a preliminary array of dates using just FREQ, INTERVAL, and COUNT/UNTIL
-    time_t until_time = event.rrule.until.tm_year != 0 ? 
-        mktime(&event.rrule.until) : 0;
+    struct tm last_dt = get_last_date();
+    time_t last_time = mktime(&last_dt);
 
-    assert(until_time != 0 || event.rrule.count != 0);
+    // Generate a preliminary array of dates using just FREQ, INTERVAL, and COUNT/UNTIL
+    time_t until_time = event.rrule.until.tm_year != 0 ?
+        mktime(&event.rrule.until) : 0;
 
     struct event cur_event = event;
     while (true) {
         struct event next_event = cur_event;
         time_t next_time;
         switch (event.rrule.freq) {
-            case YEARLY: 
+            case YEARLY:
                 next_event.datetime.tm_year += event.rrule.interval;
                 break;
             case MONTHLY:
@@ -548,13 +549,17 @@ struct events expand_rrule(struct event event) {
                 return events;
         }
         next_time = mktime(&next_event.datetime);
-        
+
         struct rrule blank_rrule = {0};
         cur_event.rrule = blank_rrule;
 
         if (event.rrule.count != 0 && events.length >= event.rrule.count) {
             break;
         } else if (until_time != 0 && next_time > until_time) {
+            cur_event.summary = strdup(cur_event.summary);
+            append_event(&events, cur_event);
+            break;
+        } else if (next_time > last_time) {
             cur_event.summary = strdup(cur_event.summary);
             append_event(&events, cur_event);
             break;

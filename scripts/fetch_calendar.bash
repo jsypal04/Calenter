@@ -23,7 +23,7 @@ done
 if [[ $result != 0 ]]; then
     return=$?
     rm -rf $CALENDAR_DIR/downloads
-    notify-send --urgency=critical "calendar.txt" "Failed to download Google Calendar ICS file"
+    notify-send --app-name=Calenter --urgency=critical "calendar.txt" "Failed to download Google Calendar ICS file"
 
     exit $return
 fi
@@ -33,11 +33,11 @@ python3 $CALENDAR_DIR/scripts/write_events.py $CALENDAR_DIR/downloads/gcal.ics >
 if [[ $? != 0 ]]; then
     return=$?
     rm -rf $CALENDAR_DIR/downloads
-    notify-send --urgency=critical "calendar.txt" "Failed to write Google Calendar event to calendar.txt"
+    notify-send --app-name=Calenter --urgency=critical "calendar.txt" "Failed to write Google Calendar event to calendar.txt"
 
     exit $return
 fi
 
 rm -rf $CALENDAR_DIR/downloads
 
-notify-send --urgency=normal "calendar.txt" "Google Calendar sync successful"
+notify-send --app-name=Calenter --urgency=normal "calendar.txt" "Google Calendar sync successful"

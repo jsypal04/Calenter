@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <time.h>
-#include "../utils/types.h"
+#include "types.h"
 
 /*
  * Gets an array of all the events for a given day from calendar.txt
