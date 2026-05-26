@@ -69,3 +69,4 @@ the selector does not reset to something in the smaller range.
 3. If lines of an ICS file end in LF instead of CRLF it causes a seg fault
     - This is not really a bug since by the RFC, ICS file lines must end int CRLF
       but it would probably be good to add fault handling.
+4. When creating events between 12 PM and 12:59 PM the time of the event gets pushed forward 12 hours.
