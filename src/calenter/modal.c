@@ -20,7 +20,7 @@ typedef struct _input_field {
 } InputField;
 
 typedef struct _input_fields {
-    bool           all_day; 
+    bool           all_day;
     enum input_tag active_input;
     InputField     hour;
     InputField     min;
@@ -133,8 +133,17 @@ struct event add_event_modal(Window** windows, struct event* event) {
             new_event.datetime.tm_hour = atoi(inputs.hour.content);
             new_event.datetime.tm_min = atoi(inputs.min.content);
 
-            if (strcmp(inputs.suffix.content, "PM") == 0) 
+            if (
+                strcmp(inputs.suffix.content, "PM") == 0 &&
+                new_event.datetime.tm_hour != 12
+            ) {
                 new_event.datetime.tm_hour += 12;
+            } else if (
+                strcmp(inputs.suffix.content, "AM") == 0 &&
+                new_event.datetime.tm_hour == 12
+            ) {
+                new_event.datetime.tm_hour = 0;
+            }
         } else {
             new_event.all_day = true;
         }

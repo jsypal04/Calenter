@@ -3,9 +3,6 @@ CFLAGS = -g -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
 LDLIBS = -lncurses -lcurl
 BUILD_DIR = build
 
-# SRC_FILES := $(shell find ./src -name "*.c")
-# OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRC_FILES))
-
 LIB_SRC_FILES := $(shell find ./src/common -name "*.c" | sed 's#^\./##')
 LIB_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(LIB_SRC_FILES))
 
@@ -28,12 +25,18 @@ $(LIB): $(LIB_OBJ_FILES)
 
 $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	@echo -e "Linking C executable $(BIN)"
-	@$(CC) $(CFLAGS) $(LDLIBS) $(BIN_OBJ_FILES) -o $(BIN) $(PWD)/$(LIB)
+	@$(CC) $(CFLAGS) $(LDLIBS) $(BIN_OBJ_FILES) \
+		-L$(BUILD_DIR) -lcalenter \
+		-Wl,-rpath,'$$ORIGIN' \
+		-o $(BIN)
 	@echo -e "\e[32mBuilt target $(BIN)\e[0m"
 
 $(NOTI): $(LIB) $(NOTI_OBJ_FILES)
 	@echo -e "Linking C executable $(NOTI)"
-	@$(CC) $(CFLAGS) $(NOTI_OBJ_FILES) -o $(NOTI) $(PWD)/$(LIB)
+	@$(CC) $(CFLAGS) $(NOTI_OBJ_FILES) \
+	    -L$(BUILD_DIR) -lcalenter \
+		-Wl,-rpath,'$$ORIGIN' \
+		-o $(NOTI)
 	@echo -e "\e[32mBuilt target $(NOTI)\e[0m"
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
@@ -51,10 +54,10 @@ binary: $(BIN)
 daemon: $(NOTI)
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)/*
 
-install: $(BIN)
-	cp $(BIN) $(HOME)/.local/bin
+install: $(BIN) $(NOTI)
+	@echo "Installation target not ready yet"
 
 
 .PHONY: all library binary daemon clean install

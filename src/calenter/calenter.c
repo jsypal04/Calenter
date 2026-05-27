@@ -278,6 +278,8 @@ void handle_key_press(Window** active_win_ref, int key) {
                     }
                 }
 
+                debug_log("new event time: %d:%d\n", new_event.datetime.tm_hour, new_event.datetime.tm_min);
+
                 if (new_event.summary != NULL) {
                     new_event.datetime.tm_year = active_win->widgets[sched_index].widget.schedule.year - 1900;
                     new_event.datetime.tm_mon = active_win->widgets[sched_index].widget.schedule.month - 1;

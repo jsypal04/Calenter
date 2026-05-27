@@ -34,15 +34,7 @@ Run the following commands:
 git clone https://github.com/jsypal04/Calenter.git
 make install
 ```
-
 Download a calendar.txt template and place it in `~/.calendar/calendar.txt`
-
-### Pre-built
-
-Run the following command (don't do this):
-```bash
-curl -L "https://github.com/jsypal04/Calenter/releases/download/v0.1.0/install.sh" | bash
-```
 
 ## Feature List
 
@@ -63,10 +55,7 @@ This is a list of features I want to add.
 
 This is a list of known bugs.
 
-1. If you try to go to a day with fewer events than the current day (via the calendar widget)
-the selector does not reset to something in the smaller range.
-2. Something is up with creating events that are at midnight.
-3. If lines of an ICS file end in LF instead of CRLF it causes a seg fault
+1. If lines of an ICS file end in LF instead of CRLF it causes a seg fault
     - This is not really a bug since by the RFC, ICS file lines must end int CRLF
       but it would probably be good to add fault handling.
 4. When creating events between 12 PM and 12:59 PM the time of the event gets pushed forward 12 hours.
