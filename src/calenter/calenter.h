@@ -63,7 +63,6 @@ typedef struct _window {
     Widget* widgets;
 } Window;
 
-
 /*
  * Formats the given date as a human readable string in the following format:
  * "weekday, dd month yyyy" (e.g., Friday, 20 February 2026)

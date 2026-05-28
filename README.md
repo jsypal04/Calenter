@@ -10,7 +10,11 @@ Run the following:
 git clone https://github.com/jsypal04/Calenter.git
 make
 ```
-The binary is `build/calenter`.
+
+This command produces three artifacts: `build/calenter`, `build/calenter-notification-daemon`,
+and `libcalenter.so`. The first artifact is the app binary. The seconds artifact is the daemon process that sends
+notifications when the event gets close enough (configurable, see below). The third artifact is a shared library
+containing the code shared between the two executables.
 
 ## Config File
 
@@ -19,22 +23,23 @@ following basic syntax:
 ```
 key=value
 ```
-At the time of writing the only configurable option is to add your private Google Calendar
-ICS url using the following line:
+
+Currently, there are only options to add a remote calendar (permalink to a .ics file) and to configure notification settings.
+An example config is included below.
+
 ```
 remote_url=<your gcal url>
+enable_notifications=true
+notify_time=10
 ```
 
 ## Installation
 
-### From source
-
 Run the following commands:
 ```bash
 git clone https://github.com/jsypal04/Calenter.git
-make install
+sudo make install
 ```
-Download a calendar.txt template and place it in `~/.calendar/calendar.txt`
 
 ## Feature List
 
@@ -43,10 +48,12 @@ This is a list of features I want to add.
 - [x] Ability to add all day events
 - [ ] Repeat rules
     - [ ] Store event date-time data as a `struct tm`
+    - [ ] Write algorithm to process BYxxx rules
 - [ ] Multi-day all day events
-- [ ] Native ics parser
+- [x] Native ics parser
 - [ ] Google Calendar Integrations (read and write)
 - [ ] Ability for configuration (need to flesh this out)
+    - [x] Notifications
     - [ ] Colors
     - [ ] Layout
 - [ ] Add cursors to input fields
@@ -58,4 +65,4 @@ This is a list of known bugs.
 1. If lines of an ICS file end in LF instead of CRLF it causes a seg fault
     - This is not really a bug since by the RFC, ICS file lines must end int CRLF
       but it would probably be good to add fault handling.
-4. When creating events between 12 PM and 12:59 PM the time of the event gets pushed forward 12 hours.
+2. When the app launches the daemon process the terminal stays open after the app is closed.

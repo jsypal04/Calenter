@@ -1,3 +1,6 @@
+APP_USER=$(shell stat -c '%U' .)
+APP_HOME=$(shell getent passwd $(APP_USER) | cut -d: -f6)
+
 CC = gcc
 CFLAGS = -g -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
 LDLIBS = -lncurses -lcurl
@@ -26,17 +29,13 @@ $(LIB): $(LIB_OBJ_FILES)
 $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	@echo -e "Linking C executable $(BIN)"
 	@$(CC) $(CFLAGS) $(LDLIBS) $(BIN_OBJ_FILES) \
-		-L$(BUILD_DIR) -lcalenter \
-		-Wl,-rpath,'$$ORIGIN' \
-		-o $(BIN)
+	    -L$(BUILD_DIR) -lcalenter -o $(BIN)
 	@echo -e "\e[32mBuilt target $(BIN)\e[0m"
 
 $(NOTI): $(LIB) $(NOTI_OBJ_FILES)
 	@echo -e "Linking C executable $(NOTI)"
 	@$(CC) $(CFLAGS) $(NOTI_OBJ_FILES) \
-	    -L$(BUILD_DIR) -lcalenter \
-		-Wl,-rpath,'$$ORIGIN' \
-		-o $(NOTI)
+	    -L$(BUILD_DIR) -lcalenter -o $(NOTI)
 	@echo -e "\e[32mBuilt target $(NOTI)\e[0m"
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
@@ -57,7 +56,13 @@ clean:
 	rm -rf $(BUILD_DIR)/*
 
 install: $(BIN) $(NOTI)
-	@echo "Installation target not ready yet"
+	cp $(LIB) /usr/lib
+	ldconfig
+
+	curl https://terokarvinen.com/2021/calendar-txt/calendar-txt-until-2033.txt > $(APP_HOME)/.calendar/calendar.txt
+
+	cp $(BIN) $(APP_HOME)/.local/bin
+	cp $(NOTI) $(APP_HOME)/.local/bin
 
 
 .PHONY: all library binary daemon clean install

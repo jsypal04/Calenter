@@ -15,14 +15,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <curl/curl.h>
 #include <curl/easy.h>
-#include "sync.h"
-#include "../../common/calendartxt.h"
-#include "config.h"
 #include "glib-object.h"
-#include "../../common/ics.h"
+#include "sync.h"
 #include "../calenter.h"
+#include "../../common/calendartxt.h"
+#include "../../common/ics.h"
 
 #define SYNC_SCRIPT "fetch_calendar.bash"
 #define SYNC_SCRIPT_PATH "/.calendar/scripts/fetch_calendar.bash"
@@ -31,6 +31,7 @@
 typedef enum _ERRNO {
     SUCCESS,
     NO_SYNC_SCRIPT_PATH,
+    SCRIPT_FAILED,
     NO_REMOTE,
     CURL_FAILED,
     NO_EVENTS,
@@ -41,32 +42,34 @@ void*  sync_calendar_curl(void* ptr);
 size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream);
 int    update_calendartxt(char* ics_file);
 
-int sync_calendar() {
-    Config config = read_config();
-    if (config.remote_url == NULL) return NO_REMOTE;
-
+int sync_calendar(char* remote_url) {
     char* sync_script_path = get_sync_script_path();
 
     if (sync_script_path == NULL) return NO_SYNC_SCRIPT_PATH;
 
-    if (fork() == 0) {
+    int pid = fork();
+    if (pid == 0) {
         freopen("/dev/null", "w", stdout);
         freopen("/dev/null", "w", stderr);
 
-        execl(sync_script_path, SYNC_SCRIPT, config.remote_url, NULL);
+        execl(sync_script_path, SYNC_SCRIPT, remote_url, NULL);
+        _exit(EXIT_FAILURE);
+    } else if (pid > 0) {
+        waitpid(pid, NULL, 0);
+        return EXIT_SUCCESS;
     }
 
-    free(config.remote_url);
-
-    return SUCCESS;
+    return SCRIPT_FAILED;
 }
 
-void sync_calendar_wrapper() {
+void sync_calendar_wrapper(char* remote_url) {
     pthread_t syncer_thread;
-    pthread_create(&syncer_thread, NULL, sync_calendar_curl, NULL);
+    pthread_create(&syncer_thread, NULL, sync_calendar_curl, remote_url);
 }
 
 void* sync_calendar_curl(void* ptr) {
+    char* remote_url = (char*)ptr;
+
     CURL* curl;
     FILE* output_file;
     CURLcode res;
@@ -80,12 +83,9 @@ void* sync_calendar_curl(void* ptr) {
         return NULL;
     };
 
-    Config config = read_config();
-    if (config.remote_url == NULL) return NULL;
-
     output_file = fopen(SYNC_TMP_FILE, "w");
 
-    curl_easy_setopt(curl, CURLOPT_URL, config.remote_url);
+    curl_easy_setopt(curl, CURLOPT_URL, remote_url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, output_file);
 
@@ -105,7 +105,7 @@ void* sync_calendar_curl(void* ptr) {
     NotifyNotification* noti = notify_notification_new(
         "Sync Successful",
         "Calenter successfully sank with your Google Calendar.",
-        "dialog-information"
+        ""
     );
     notify_notification_show(noti, NULL);
     g_object_unref(G_OBJECT(noti));

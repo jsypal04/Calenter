@@ -1,4 +1,4 @@
-/* 
+/*
  * config.c
  *
  * This file provides a function for reading a config file
@@ -10,16 +10,25 @@
 
 #include "config.h"
 #include "../calenter.h"
+#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
+typedef struct line {
+    char key[64];
+    char* value;
+} ConfigLine;
 
-void config_exists(char* dir);
+int retval;
+
+ConfigLine parse_next_config_line(FILE* config_file);
+bool contains(const char** keys, char* key);
 
 Config read_config() {
     Config config = {0};
@@ -34,23 +43,78 @@ Config read_config() {
 
     free(config_path);
 
-    char* line = NULL;
-    size_t len = 0;
-    int read;
+    ConfigLine line;
 
-    do {
-        read = getline(&line, &len, config_file);
-
-        
-        if (strstr(line, "remote_url")) {
-            config.remote_url = strdup(line + strlen("remote_url") + 1);
-            trim(config.remote_url);
+    line = parse_next_config_line(config_file);
+    while (retval != EOF) {
+        if (strcmp(line.key, "remote_url") == 0) {
+            config.remote_url = strdup(line.value);
+            debug_log("remote_url: %s\n", config.remote_url);
+        } else if (strcmp(line.key, "enable_notifications") == 0) {
+            if (
+                strcmp(line.value, "true") == 0 ||
+                strcmp(line.value, "True") == 0 ||
+                strcmp(line.value, "TRUE") == 0
+            ) {
+                config.enable_notifications = true;
+                debug_log("enable_notifications: true\n");
+            } else {
+                config.enable_notifications = false;
+                debug_log("enable_notifications: false\n");
+            }
+        } else if (strcmp(line.key, "notify_time") == 0) {
+            config.notify_time = atoi(line.value);
+            debug_log("notify_time: %d\n", config.notify_time);
+        } else {
+            debug_log("Bad config option: '%s'\n", line.key);
         }
-    } while (read > 0);
 
-    free(line);
+        free(line.value);
+        line.value = NULL;
+
+        line = parse_next_config_line(config_file);
+    }
+
+    if (config.enable_notifications && config.notify_time == 0) {
+        config.notify_time = 10;
+    }
+
     fclose(config_file);
 
     return config;
 }
 
+ConfigLine parse_next_config_line(FILE* config_file) {
+    ConfigLine config_line = {0};
+    char* line = NULL;
+    size_t len = 0;
+    int read;
+
+    read = getline(&line, &len, config_file);
+    if (read <= 0) {
+        retval = EOF;
+        free(line);
+        line = NULL;
+        return config_line;
+    }
+
+    char* eq_ptr = strstr(line, "=");
+    if (eq_ptr == NULL) {
+        retval = 1;
+        free(line);
+        line = NULL;
+        return config_line;
+    }
+    int key_len = eq_ptr - line;
+
+    assert(key_len < 64);
+
+    strncpy(config_line.key, line, key_len);
+    trim(config_line.key);
+
+    config_line.value = strdup(eq_ptr + 1);
+    trim(config_line.value);
+
+    retval = 0;
+    return config_line;
+}
