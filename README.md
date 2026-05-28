@@ -24,7 +24,7 @@ following basic syntax:
 key=value
 ```
 
-Currently, there are only options to add a remote calendar (permalink to a .ics file) and to configure notification settings.
+Currently, there are only options to add a remote calendar and to configure notification settings.
 An example config is included below.
 
 ```
@@ -32,6 +32,11 @@ remote_url=<your gcal url>
 enable_notifications=true
 notify_time=10
 ```
+Notes on config options:
+- `remote_url` should be a permalink to a .ics file
+- `enable_notifications` is the master toggle for the notification daemon; if it is false, then the daemon will be stopped.
+- `notify_time` is the amount of time in minutes before an event that the daemon will send
+a notification.
 
 ## Installation
 
