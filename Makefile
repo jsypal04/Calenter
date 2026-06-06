@@ -52,6 +52,10 @@ binary: $(BIN)
 
 daemon: $(NOTI)
 
+run: $(BIN) $(NOTI)
+	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
+	./$(BIN)
+
 clean:
 	rm -rf $(BUILD_DIR)/*
 

@@ -6,11 +6,14 @@
 #include <time.h>
 #include "calenter.h"
 
+#define NUM_INPUTS 5
+
 enum input_tag {
     HOUR,
     MIN,
     SUFFIX,
     SUMMARY,
+    FREQ_SELECT,
 };
 
 typedef struct _input_field {
@@ -22,6 +25,7 @@ typedef struct _input_field {
 typedef struct _input_fields {
     bool           all_day;
     enum input_tag active_input;
+    enum FREQ      freq_select;
     InputField     hour;
     InputField     min;
     InputField     suffix;
@@ -33,6 +37,9 @@ void set_byte(Inputs* inputs, char ch);
 void delete_byte(Inputs* inputs);
 void render_input_fields(WINDOW* win, Inputs* inputs);
 void init_inputs(Inputs* inputs, WINDOW* modal, int width);
+void render_freq_select_menu(WINDOW* win, Inputs* inputs, int y, int x, bool active);
+
+char* map_freq(enum FREQ freq);
 
 struct event add_event_modal(Window** windows, struct event* event) {
     int height = 3 * LINES / 4;
@@ -92,7 +99,7 @@ struct event add_event_modal(Window** windows, struct event* event) {
             case '\t': {
                 if (inputs.all_day) break;
 
-                inputs.active_input = (inputs.active_input + 1) % 4;
+                inputs.active_input = (inputs.active_input + 1) % NUM_INPUTS;
                 render_input_fields(modal, &inputs);
                 break;
             }
@@ -116,6 +123,18 @@ struct event add_event_modal(Window** windows, struct event* event) {
                     render_input_fields(modal, &inputs);
                     break;
                 }
+            }
+            case KEY_DOWN: {
+                if (inputs.active_input != FREQ_SELECT) break;
+                inputs.freq_select = (inputs.freq_select + 1) % 7;
+                render_input_fields(modal, &inputs);
+                break;
+            }
+            case KEY_UP: {
+                if (inputs.active_input != FREQ_SELECT) break;
+                inputs.freq_select = inputs.freq_select != 0 ? inputs.freq_select - 1 : 6;
+                render_input_fields(modal, &inputs);
+                break;
             }
             default: {
                 set_byte(&inputs, ch);
@@ -205,7 +224,8 @@ void delete_byte(Inputs* inputs) {
             inputs->summary.content[inputs->summary.index] = ' ';
             break;
         }
-        case SUFFIX: break;
+        case SUFFIX:      return;
+        case FREQ_SELECT: return;
     };
 }
 
@@ -249,6 +269,9 @@ void render_input_fields(WINDOW* win, Inputs* inputs) {
         wbkgd(inputs->summary.win, COLOR_PAIR(INPUT_FIELD_PAIR));
     }
 
+    mvwprintw(win, 18, 3, "Recurrence Rule");
+    render_freq_select_menu(win, inputs, 19, 3, inputs->active_input == FREQ_SELECT);
+
     wrefresh(win);
     wrefresh(inputs->summary.win);
     wrefresh(inputs->hour.win);
@@ -268,4 +291,41 @@ void init_inputs(Inputs* inputs, WINDOW* modal, int width) {
     inputs->min.win     = derwin(modal, 1, 2, 3, 6);
     inputs->suffix.win  = derwin(modal, 1, 2, 3, 9);
     inputs->summary.win = derwin(modal, 10, width - 6, 7, 3);
+    inputs->freq_select = NONE;
+}
+
+char* map_freq(enum FREQ freq) {
+    switch (freq) {
+        case NONE:     return " None     ";
+        case YEARLY:   return " Yearly   ";
+        case MONTHLY:  return " Monthly  ";
+        case WEEKLY:   return " Weekly   ";
+        case DAILY:    return " Daily    ";
+        case HOURLY:   return " Hourly   ";
+        case MINUTELY: return " Minutely ";
+        default:       return "          ";
+    }
+}
+
+void render_freq_select_menu(WINDOW* win, Inputs* inputs, int y, int x, bool active) {
+    if (!active) {
+        wattron(win, COLOR_PAIR(INPUT_FIELD_PAIR));
+        mvwprintw(win, y, x, "%s", map_freq(inputs->freq_select));
+        wattroff(win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    }
+
+    for (int i = 0; i < 7; i++) {
+        if (active && inputs->freq_select == i) {
+            wattron(win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+            mvwprintw(win, y + i, x, "%s", map_freq(i));
+            wattroff(win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+            continue;
+        } else if (active && inputs->freq_select != i) {
+            wattron(win, COLOR_PAIR(INPUT_FIELD_PAIR));
+            mvwprintw(win, y + i, x, "%s", map_freq(i));
+            wattroff(win, COLOR_PAIR(INPUT_FIELD_PAIR));
+        } else if (i > 0) {
+            mvwprintw(win, y + i, x, "%s", map_freq(-1));
+        }
+    }
 }
