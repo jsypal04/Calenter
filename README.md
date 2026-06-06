@@ -16,6 +16,12 @@ and `libcalenter.so`. The first artifact is the app binary. The seconds artifact
 notifications when the event gets close enough (configurable, see below). The third artifact is a shared library
 containing the code shared between the two executables.
 
+To run the app without installing it use the following command.
+```bash
+make run
+```
+This sets the library paths properly before starting the app which prevents missing library issues.
+
 ## Config File
 
 You may create a config file at `~/.config/calenter/config`. It uses the
@@ -52,11 +58,11 @@ This is a list of features I want to add.
 
 - [x] Ability to add all day events
 - [ ] Repeat rules
-    - [ ] Store event date-time data as a `struct tm`
+    - [x] Store event date-time data as a `struct tm`
+    - [ ] Enable creating events with repeat rules.
     - [ ] Write algorithm to process BYxxx rules
 - [ ] Multi-day all day events
 - [x] Native ics parser
-- [ ] Google Calendar Integrations (read and write)
 - [ ] Ability for configuration (need to flesh this out)
     - [x] Notifications
     - [ ] Colors
