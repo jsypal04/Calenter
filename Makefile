@@ -69,4 +69,4 @@ install: $(BIN) $(NOTI)
 	cp $(NOTI) $(APP_HOME)/.local/bin
 
 
-.PHONY: all library binary daemon clean install
+.PHONY: all library binary daemon run clean install

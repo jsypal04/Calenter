@@ -109,4 +109,6 @@ struct event add_event_modal(Window** windows, struct event* event);
  * */
 void trim(char* str);
 
+bool verify_date(char* date);
+
 #endif

@@ -100,3 +100,18 @@ void trim(char* str) {
         index1--;
     }
 }
+
+bool verify_date(char* date) {
+    bool invalid = false;
+    for (int i = 0; i < strlen(date); i++) {
+        char c = date[i];
+        if (
+            (i != 4 && i != 7 && (c < 48 || c > 57)) ||
+            ((i == 4 || i == 7) && c != '-')
+        ) {
+            invalid = true;
+            break;
+        }
+    }
+    return invalid;
+}

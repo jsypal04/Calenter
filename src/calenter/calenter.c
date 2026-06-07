@@ -114,11 +114,17 @@ int main() {
 
         switch (ch) {
             case '\t': {
-                if (active_win_index == NUM_FOCUSABLE_WINDOWS - 1) {
-                    active_win_index = 0;
-                } else {
-                    active_win_index++;
-                }
+                active_win_index =
+                    active_win_index < NUM_FOCUSABLE_WINDOWS - 1 ?
+                    active_win_index + 1 : 0;
+                set_active_window(&active_win, windows[active_win_index]);
+                break;
+            }
+            case KEY_BTAB: {
+                active_win_index =
+                    active_win_index > 0 ?
+                    active_win_index - 1 :
+                    NUM_FOCUSABLE_WINDOWS - 1;
                 set_active_window(&active_win, windows[active_win_index]);
                 break;
             }
@@ -219,6 +225,7 @@ void handle_key_press(Window** active_win_ref, int key) {
 
     if (active_win->id == CALENDAR_WIN) {
         switch (key) {
+            case KEY_RIGHT:
             case 'l': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
                 move_widget_date(&active_win->widgets[cal_index], 0, 0, 1);
@@ -240,6 +247,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 render_calendar(active_win, true);
                 break;
             }
+            case KEY_LEFT:
             case 'h': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
                 move_widget_date(&active_win->widgets[cal_index], 0, 0, -1);
@@ -247,6 +255,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 render_calendar(active_win, true);
                 break;
             }
+            case KEY_UP:
             case 'k': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
                 move_widget_date(&active_win->widgets[cal_index], 0, 0, -7);
@@ -254,6 +263,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 render_calendar(active_win, true);
                 break;
             }
+            case KEY_DOWN:
             case 'j': {
                 int cal_index = get_widget_index(active_win, CALENDAR);
                 move_widget_date(&active_win->widgets[cal_index], 0, 0, 7);
@@ -282,6 +292,7 @@ void handle_key_press(Window** active_win_ref, int key) {
         }
     } else if (active_win->id == SCHEDULE_WIN) {
         switch (key) {
+            case KEY_RIGHT:
             case 'l': {
                 int sched_index = get_widget_index(active_win, SCHEDULE);
                 int days_in_month = get_days_in_month(active_win->widgets[sched_index].widget.schedule.month);
@@ -301,6 +312,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
                 break;
             }
+            case KEY_LEFT:
             case 'h': {
                 int sched_index = get_widget_index(active_win, SCHEDULE);
                 if (active_win->widgets[sched_index].widget.schedule.day > 1) {
@@ -319,6 +331,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
                 break;
             }
+            case KEY_DOWN:
             case 'j': {
                 int sched_index = get_widget_index(active_win, SCHEDULE);
                 int num_events = active_win->widgets[sched_index].widget.schedule.events.length;
@@ -328,6 +341,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 }
                 break;
             }
+            case KEY_UP:
             case 'k': {
                 int sched_index = get_widget_index(active_win, SCHEDULE);
                 if (active_win->widgets[sched_index].widget.schedule.selected_event > 0) {
