@@ -214,7 +214,7 @@ struct event add_event_modal(Window** windows, struct event* event) {
         trim(inputs.summary.content);
         new_event.summary = strdup(inputs.summary.content);
 
-        if (verify_date(inputs.until.content)) {
+        if (inputs.freq_select != NONE && verify_date(inputs.until.content)) {
             char year[4]  = "\0";
             char month[2] = "\0";
             char day[2]   = "\0";
