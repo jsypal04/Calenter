@@ -2,17 +2,13 @@
  * ics.c
  *
  * This file contains functions to parse events in a ICS
- * file into data structures that can be written to calendat.txt
+ * file into data structures that can be written to calendar.txt
  * using the functions in calendartxt.c.
- *
- * NOTE: This file does not work yet and is not actually compiled and
- * linked into the project yet.
  */
 
 #include "calendartxt.h"
-#include "../utils/array.h"
+#include "array.h"
 #include <assert.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -82,6 +78,7 @@ void expand_str_array(char **arr, int length) {
 /*
  * Gets the next line in the ics file (accounting for line folding).
  * Returns the number of characters read or EOF if the end of file was reached.
+ * Return -2 if the parsing failed.
  * */
 int get_line(Line *line) {
     int buf_len = 2048;
@@ -93,7 +90,8 @@ int get_line(Line *line) {
 
     // I know this is probably dumb to have while (true) loop but I don't care
     while (true) {
-      while ((c = fgetc(line->ics_file)) != '\r') {
+      c = fgetc(line->ics_file);
+      while (c != '\r' && c != '\n') {
         if (c == EOF)
           return EOF;
 
@@ -112,9 +110,12 @@ int get_line(Line *line) {
 
         buffer[index] = c;
         index++;
+        c = fgetc(line->ics_file);
       }
 
-      c = fgetc(line->ics_file); // takes care of the newline
+      if (c == '\r') {
+        c = fgetc(line->ics_file); // takes care of the newline
+      }
       c = fgetc(line->ics_file);
       if (c != ' ' && c != '\t') {
           break;
@@ -199,8 +200,10 @@ ContentLine parse_content_line(Line line) {
  * of the event.
  *
  * Returns 0 if the parsing was successful, otherwise -1.
+ *
+ * TODO: Make tests for this function
  * */
-int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
+int parse_ISO_8601_timestamp(char* timestamp, struct tm* time) {
     if (strlen(timestamp) < 8) return -1;
 
     char  year[10] = "\0";
@@ -214,13 +217,12 @@ int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
     strncpy(day, timestamp + 6, 2);
 
     // TODO: Validate the atoi inputs
-    event->year  = atoi(year);
-    event->month = atoi(month);
-    event->day   = atoi(day);
+    time->tm_year = atoi(year) - 1900;
+    time->tm_mon = atoi(month) - 1;
+    time->tm_mday = atoi(day);
 
     if (strlen(timestamp) == 8) {
-        event->hour = -1;
-        event->min  = -1;
+        mktime(time);
         return 0;
     }
 
@@ -231,38 +233,21 @@ int parse_ISO_8601_timestamp(char* timestamp, struct event* event) {
     strncpy(min, timestamp + 11, 2);
 
     // TODO: Validate the atoi inputs
-    event->hour = atoi(hour);
-    event->min  = atoi(min);
+    time->tm_hour = atoi(hour);
+    time->tm_min = atoi(min);
+    mktime(time);
 
     // Handle timezone conversion
     if (strlen(timestamp) == 16 && timestamp[15] == 'Z') {
-        struct tm utc_time = {0};
-        utc_time.tm_year = event->year - 1900;
-        utc_time.tm_mon  = event->month - 1;
-        utc_time.tm_mday = event->day;
-        utc_time.tm_hour = event->hour;
-        utc_time.tm_min  = event->min;
-        mktime(&utc_time);
-
-        time_t t = timegm(&utc_time);
-
-        struct tm local_time = {0};
-        localtime_r(&t, &local_time);
-
-        event->year  = local_time.tm_year + 1900;
-        event->month = local_time.tm_mon + 1;
-        event->day   = local_time.tm_mday;
-        event->hour  = local_time.tm_hour;
-        event->min   = local_time.tm_min;
+        time_t t = timegm(time);
+        localtime_r(&t, time);
     }
 
     return 0;
 }
 
 enum FREQ handle_freq(char* value) {
-    if (strcmp(value, "SECONDLY") == 0) {
-        return SECONDLY;
-    } else if (strcmp(value, "MINUTELY") == 0) {
+    if (strcmp(value, "MINUTELY") == 0) {
         return MINUTELY;
     } else if (strcmp(value, "HOURLY") == 0) {
         return HOURLY;
@@ -285,7 +270,7 @@ Array* handle_by_numeric_time_unit(char* value) {
     int start = 0;
     for (int i = 0; i < strlen(value) - 1; i++) {
         if (value[i] != ',') continue;
-        
+
         assert(i - start <= 4);
 
         char tmp[5] = "\0";
@@ -346,8 +331,14 @@ enum WKDAY handle_wkst(char* value) {
     }
 }
 
+/*
+ * NOTE: Recurrence Rules with FREQ=SECONDLY will be ignored since
+ * we only store up to minutes in calendar.txt.
+ * */
 struct rrule parse_rrule(char* raw_rrule) {
     struct rrule rrule = {0};
+
+    rrule.BYxxx_Rules = new_array(5, BYXXX_RULE);
 
     int start = 0;
     int index = 0;
@@ -361,8 +352,8 @@ struct rrule parse_rrule(char* raw_rrule) {
 
         char name[32] = "\0";
         strncpy(name, raw_rrule + start, index - start);
-        printf("\tname = %s\n", name);
-        
+        // printf("\tname = %s\n", name);
+
         index++;
         start = index;
         while (ch != ';' && ch != '\0') {
@@ -373,42 +364,78 @@ struct rrule parse_rrule(char* raw_rrule) {
         char* value = malloc(sizeof(char) * 2 * (index - start));
         memset(value, '\0', sizeof(char) * 2 * (index - start));
         strncpy(value, raw_rrule + start, index - start);
-        printf("\tvalue = %s\n", value);
+        // printf("\tvalue = %s\n", value);
 
         if (strcmp(name, "FREQ") == 0) {
             rrule.freq = handle_freq(value);
         } else if (strcmp(name, "UNTIL") == 0) {
-            // TODO: Implement
+            struct tm timestamp = {0};
+            parse_ISO_8601_timestamp(value, &timestamp);
+            rrule.until = timestamp;
         } else if (strcmp(name, "COUNT") == 0) {
             rrule.count = atoi(value);
         } else if (strcmp(name, "INTERVAL") == 0) {
             rrule.interval = atoi(value);
         } else if (strcmp(name, "BYSECOND") == 0) {
-            rrule.bysecond = handle_by_numeric_time_unit(value);
-        } else if (strcmp(name, "BYMINTUTE") == 0) {
-            rrule.byminute = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYSECOND;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
+        } else if (strcmp(name, "BYMINUTE") == 0) {
+            BYxxx_Rule rule = {0};
+            rule.type = BYMINUTE;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYHOUR") == 0) {
-            rrule.byhour = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYHOUR;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYDAY") == 0) {
-            rrule.byday = handle_by_categorical_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYDAY;
+            rule.values = handle_by_categorical_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYMONTHDAY") == 0) {
-            rrule.bymonthday = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYMONTHDAY;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYYEARDAY") == 0) {
-            rrule.byyearday = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYYEARDAY;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYWEEKNO") == 0) {
-            rrule.byweekno = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYWEEKNO;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYMONTH") == 0) {
-            rrule.bymonth = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYMONTH;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "BYSETPOS") == 0) {
-            rrule.bysetpos = handle_by_numeric_time_unit(value);
+            BYxxx_Rule rule = {0};
+            rule.type = BYSETPOS;
+            rule.values = handle_by_numeric_time_unit(value);
+            append_BYxxx_Rule(rrule.BYxxx_Rules, rule);
         } else if (strcmp(name, "WKST") == 0) {
             rrule.wkst = handle_wkst(value);
         }
+
+        if (rrule.interval == 0) rrule.interval = 1;
 
         free(value);
 
         index++;
         start = index;
+    }
+
+    if (array_len(rrule.BYxxx_Rules) == 0) {
+        free_array(rrule.BYxxx_Rules);
+        rrule.BYxxx_Rules = NULL;
     }
 
     return rrule;
@@ -424,8 +451,12 @@ struct events parse_ics(char *path) {
     struct tm today = {0};
     time_t t = time(NULL);
     localtime_r(&t, &today);
-    
-    get_line(&line);
+
+    if (get_line(&line) == -2) {
+        free_events(events);
+        memset(&events, 0, sizeof(struct events));
+        return events;
+    }
     ContentLine cline = parse_content_line(line);
 
     int eof_marker = 0;
@@ -434,6 +465,12 @@ struct events parse_ics(char *path) {
         while (eof_marker != EOF && (strcmp(cline.name, "BEGIN") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
             free_content_line(&cline);
             eof_marker = get_line(&line);
+            if (eof_marker == -2) {
+                free_events(events);
+                memset(&events, 0, sizeof(struct events));
+                return events;
+            }
+
             cline = parse_content_line(line);
         }
 
@@ -445,14 +482,24 @@ struct events parse_ics(char *path) {
         while (eof_marker != EOF && (strcmp(cline.name, "END") != 0 || strcmp(cline.value, "VEVENT") != 0)) {
             free_content_line(&cline);
             eof_marker = get_line(&line);
+            if (eof_marker == -2) {
+                free_events(events);
+                memset(&events, 0, sizeof(struct events));
+                return events;
+            }
             cline = parse_content_line(line);
 
             if (strcmp(cline.name, "DTSTART") == 0) {
-                parse_ISO_8601_timestamp(cline.value, &event);
+                struct tm timestamp = {0};
+                parse_ISO_8601_timestamp(cline.value, &timestamp);
+                event.datetime = timestamp;
+                if (strlen(cline.value) < 15) {
+                    event.all_day = true;
+                }
             } else if (strcmp(cline.name, "SUMMARY") == 0) {
                 event.summary = strdup(cline.value);
             } else if (strcmp(cline.name, "RRULE") == 0) {
-                printf("RRULE = %s\n", cline.value);
+                // printf("RRULE = %s\n", cline.value);
                 event.rrule = parse_rrule(cline.value);
             }
         }

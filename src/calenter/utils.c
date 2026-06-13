@@ -1,5 +1,7 @@
 #include <ctype.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <string.h>
 #include "calenter.h"
@@ -99,4 +101,36 @@ void trim(char* str) {
         str[index1] = '\0';
         index1--;
     }
+}
+
+bool verify_date(char* date) {
+    bool valid = true;
+    for (int i = 0; i < strlen(date); i++) {
+        char c = date[i];
+        if (
+            (i != 4 && i != 7 && (c < 48 || c > 57)) ||
+            ((i == 4 || i == 7) && c != '-')
+        ) {
+            valid = false;
+            break;
+        }
+    }
+    return valid;
+}
+
+// This is primarily used for debugging
+char* stringify_datetime(struct tm dt, size_t* len) {
+    *len = 1024;
+    char* str = malloc(sizeof(char) * (*len));
+    bzero(str, sizeof(char) * (*len));
+
+    sprintf(str,
+        "{'tm_year': %d, 'tm_mon': %d, 'tm_mday': %d, 'tm_yday': %d,"
+        "'tm_wday': %d, 'tm_hour': %d, 'tm_min': %d, 'tm_sec': %d,"
+        "'tm_zone': %s, 'tm_isdst': %d, 'tm_gmtoff': %ld}",
+        dt.tm_year, dt.tm_mon, dt.tm_mday, dt.tm_yday, dt.tm_wday, dt.tm_hour,
+        dt.tm_min, dt.tm_sec, dt.tm_zone, dt.tm_isdst, dt.tm_gmtoff
+    );
+
+    return str;
 }

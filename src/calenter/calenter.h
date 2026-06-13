@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <ncurses.h>
-#include "drivers/calendartxt.h"
+#include "../common/calendartxt.h"
 
 #define DEBUG
 #define ACTIVE_COLOR_PAIR       1
@@ -63,7 +63,6 @@ typedef struct _window {
     Widget* widgets;
 } Window;
 
-
 /*
  * Formats the given date as a human readable string in the following format:
  * "weekday, dd month yyyy" (e.g., Friday, 20 February 2026)
@@ -109,5 +108,9 @@ struct event add_event_modal(Window** windows, struct event* event);
  * Removes leading and trailing whitespace
  * */
 void trim(char* str);
+
+bool verify_date(char* date);
+
+char* stringify_datetime(struct tm dt, size_t* len);
 
 #endif

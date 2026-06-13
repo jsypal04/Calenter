@@ -13,13 +13,13 @@ void add_widget(Window* window, Widget widget) {
         return;
     }
 
-    Widget* new_widgets = malloc(window->num_widgets + 1);
+    Widget* new_widgets = malloc(sizeof(Widget) * (window->num_widgets + 1));
     for (int i = 0; i < window->num_widgets; i++) {
         new_widgets[i] = window->widgets[i];
     }
     free(window->widgets);
     window->widgets = new_widgets;
-    window->widgets++;
+    window->num_widgets++;
 }
 
 // Gets the index of the widget in the widget array. Returns -1 if not found.
@@ -78,20 +78,23 @@ void render_schedule(Window* win, bool active) {
     for (int i = 0; i < schedule.events.length; i++) {
         struct event event = schedule.events.events[i];
         char time_str[20] = "\0";
-        
-        char suffix[4];
-        if (event.hour < 12) {
-            strcpy(suffix, " AM");
+
+        if (event.all_day) {
+            sprintf(time_str, "ALL DAY"); 
         } else {
-            strcpy(suffix, " PM");
+            char suffix[4] = "\0";
+            if (event.datetime.tm_hour < 12) {
+                strcpy(suffix, " AM");
+            } else {
+                strcpy(suffix, " PM");
+            }
+
+            int hour = event.datetime.tm_hour % 12;
+            if (hour == 0) hour = 12;
+            
+            format_time(time_str, hour, event.datetime.tm_min);
+            if (hour != -1) strcpy(time_str + 5, suffix);
         }
-
-        int hour = event.hour % 12;
-        if (hour == 0) hour = 12;
-
-        format_time(time_str, hour, event.min);
-
-        if (hour != -1) strcpy(time_str + 5, suffix);
 
         if (i == schedule.selected_event) {
             wattron(win->win, A_REVERSE);
