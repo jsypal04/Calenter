@@ -2,7 +2,7 @@ APP_USER=$(shell stat -c '%U' .)
 APP_HOME=$(shell getent passwd $(APP_USER) | cut -d: -f6)
 
 CC = gcc
-CFLAGS = -g -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
+CFLAGS = -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
 LDLIBS = -lncurses -lcurl
 BUILD_DIR = build
 

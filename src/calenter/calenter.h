@@ -111,4 +111,6 @@ void trim(char* str);
 
 bool verify_date(char* date);
 
+char* stringify_datetime(struct tm dt, size_t* len);
+
 #endif

@@ -386,32 +386,43 @@ void handle_key_press(Window** active_win_ref, int key) {
                     }
                 }
 
-                debug_log("new event time: %d:%d\n", new_event.datetime.tm_hour, new_event.datetime.tm_min);
+                if (new_event.summary == NULL) break;
 
-                if (new_event.summary != NULL) {
-                    new_event.datetime.tm_year = active_win->widgets[sched_index].widget.schedule.year - 1900;
-                    new_event.datetime.tm_mon = active_win->widgets[sched_index].widget.schedule.month - 1;
-                    new_event.datetime.tm_mday = active_win->widgets[sched_index].widget.schedule.day;
-                    new_event.datetime.tm_isdst = -1;
-                    mktime(&new_event.datetime);
+                new_event.datetime.tm_year = active_win->widgets[sched_index].widget.schedule.year - 1900;
+                new_event.datetime.tm_mon = active_win->widgets[sched_index].widget.schedule.month - 1;
+                new_event.datetime.tm_mday = active_win->widgets[sched_index].widget.schedule.day;
+                new_event.datetime.tm_isdst = -1;
+                mktime(&new_event.datetime);
 
+                if (new_event.rrule.freq == NONE) {
                     add_event(
-                            new_event,
+                        new_event,
+                        new_event.datetime.tm_year + 1900,
+                        new_event.datetime.tm_mon + 1,
+                        new_event.datetime.tm_mday
+                    );
+                } else {
+                    struct events new_events_list = expand_rrule(new_event);
+                    for (int i = 0; i < new_events_list.length; i++) {
+                        struct event evt = new_events_list.events[i];
+                        add_event(
+                            evt,
+                            evt.datetime.tm_year + 1900,
+                            evt.datetime.tm_mon + 1,
+                            evt.datetime.tm_mday
+                        );
+                    }
+                }
+
+                free_events(active_win->widgets[sched_index].widget.schedule.events);
+                active_win->widgets[sched_index].widget.schedule.events =
+                    get_events(
                             new_event.datetime.tm_year + 1900,
                             new_event.datetime.tm_mon + 1,
                             new_event.datetime.tm_mday
                     );
 
-                    free_events(active_win->widgets[sched_index].widget.schedule.events);
-                    active_win->widgets[sched_index].widget.schedule.events =
-                        get_events(
-                                new_event.datetime.tm_year + 1900,
-                                new_event.datetime.tm_mon + 1,
-                                new_event.datetime.tm_mday
-                        );
-
-                    render_schedule(active_win, true);
-                }
+                render_schedule(active_win, true);
                 break;
             }
         }

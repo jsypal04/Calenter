@@ -214,18 +214,20 @@ struct event add_event_modal(Window** windows, struct event* event) {
         trim(inputs.summary.content);
         new_event.summary = strdup(inputs.summary.content);
 
+        trim(inputs.until.content);
         if (inputs.freq_select != NONE && verify_date(inputs.until.content)) {
-            char year[4]  = "\0";
-            char month[2] = "\0";
-            char day[2]   = "\0";
+            char year[5]  = "\0";
+            char month[3] = "\0";
+            char day[3]   = "\0";
 
             strncpy(year,  inputs.until.content,     4);
             strncpy(month, inputs.until.content + 5, 2);
             strncpy(day,   inputs.until.content + 8, 2);
 
-            new_event.rrule.until.tm_year = atoi(year);
-            new_event.rrule.until.tm_mon  = atoi(month);
+            new_event.rrule.until.tm_year = atoi(year) - 1900;
+            new_event.rrule.until.tm_mon  = atoi(month) - 1;
             new_event.rrule.until.tm_mday = atoi(day);
+
             mktime(&new_event.rrule.until);
 
             new_event.rrule.freq = inputs.freq_select;
