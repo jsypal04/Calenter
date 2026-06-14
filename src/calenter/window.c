@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "calenter.h"
+#include "layout/layout.h"
 
 extern Window* windows[NUM_WINDOWS];
 
@@ -91,4 +92,9 @@ void refresh_controls(int win_id) {
     mvwprintw(windows[CONTROLS_WIN]->win, 1, x, "%s", controls_str);
     wattroff(windows[CONTROLS_WIN]->win, COLOR_PAIR(CONTROLS_COLOR_PAIR));
     refresh_win(windows[CONTROLS_WIN], false);
+}
+
+void resize_win(Window* win, UILayout* layout) {
+    wresize(win->win, get_height(layout, win->id), get_width(layout, win->id));
+    mvwin(win->win, get_starty(layout, win->id), get_startx(layout, win->id));
 }

@@ -12,6 +12,7 @@
 #include "calenter.h"
 #include "utils/config.h"
 #include "utils/sync.h"
+#include "layout/layout.h"
 
 #define DAEMON_FIFO "/tmp/calenter-notification-daemon.fifo"
 
@@ -88,12 +89,33 @@ int main() {
     init_pair(ACTIVE_INPUT_FIELD_PAIR, COLOR_WHITE, 8);
     init_pair(CONTROLS_COLOR_PAIR, COLOR_BLUE, COLOR_BLACK);
 
+    UILayoutObj sched_layout_obj = init_layout_obj(SCHEDULE_WIN, 90.0,  67.0,  0.0,  0.0, PERCENT);
+    UILayoutObj cal_layout_obj   = init_layout_obj(CALENDAR_WIN, 90.0,  33.0,  0.0, 67.0, PERCENT);
+    UILayoutObj ctrl_layout_obj  = init_layout_obj(CONTROLS_WIN, 10.0, 100.0, 90.0,  0.0, PERCENT);
+
+    UILayout* layout = init_layout(LINES, COLS);
+    register_obj(layout, sched_layout_obj);
+    register_obj(layout, cal_layout_obj);
+    register_obj(layout, ctrl_layout_obj);
+
     // Focusable windows
-    windows[SCHEDULE_WIN] = create_win(SCHEDULE_WIN, "Daily Schedule", LINES - 4, 2 * COLS / 3 - 1, 1, 0);
-    windows[CALENDAR_WIN] = create_win(CALENDAR_WIN, "Calendar", LINES - 4, COLS / 3, 2 * COLS / 3, 0);
+    windows[SCHEDULE_WIN] = create_win(
+        SCHEDULE_WIN, "Daily Schedule",
+        get_height(layout, SCHEDULE_WIN), get_width(layout, SCHEDULE_WIN),
+        get_startx(layout, SCHEDULE_WIN), get_starty(layout, SCHEDULE_WIN)
+    );
+    windows[CALENDAR_WIN] = create_win(
+        CALENDAR_WIN, "Calendar",
+        get_height(layout, CALENDAR_WIN), get_width(layout, CALENDAR_WIN),
+        get_startx(layout, CALENDAR_WIN), get_starty(layout, CALENDAR_WIN)
+    );
 
     // Non-focusable windows
-    windows[CONTROLS_WIN] = create_win(CONTROLS_WIN, NULL, 4, COLS, 0, LINES - 4);
+    windows[CONTROLS_WIN] = create_win(
+        CONTROLS_WIN, NULL,
+        get_width(layout, CONTROLS_WIN), get_width(layout, CONTROLS_WIN),
+        get_startx(layout, CONTROLS_WIN), get_starty(layout, CONTROLS_WIN)
+    );
 
     Widget calendar_widget;
     init_calendar(&calendar_widget);
@@ -128,16 +150,34 @@ int main() {
                 set_active_window(&active_win, windows[active_win_index]);
                 break;
             }
+
             case 's':
-                if (config.remote_url != NULL)
-                    sync_calendar(config.remote_url);
-                break;
+            if (config.remote_url != NULL)
+                sync_calendar(config.remote_url);
+            break;
+
+            case KEY_RESIZE:
+            erase();
+            resize_layout(layout, LINES, COLS);
+
+            resize_win(windows[SCHEDULE_WIN], layout);
+            werase(windows[SCHEDULE_WIN]->win);
+            render_schedule(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
+            refresh_win(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
+
+            resize_win(windows[CALENDAR_WIN], layout);
+            werase(windows[CALENDAR_WIN]->win);
+            render_calendar(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
+            refresh_win(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
+            break;
+
             case ERR:
-                debug_log("Received %d from wgetch\n", ch);
-                free_win(windows[0]);
-                free_win(windows[1]);
-                endwin();
-                exit(1);
+            debug_log("Received %d from wgetch\n", ch);
+            free_win(windows[0]);
+            free_win(windows[1]);
+            endwin();
+            exit(1);
+
             default: handle_key_press(&active_win, ch);
         };
 
@@ -149,6 +189,8 @@ int main() {
     free_win(windows[0]);
     free_win(windows[1]);
     endwin();
+
+    free_layout(layout);
 
     free(config.remote_url);
     config.remote_url = NULL;

@@ -54,12 +54,12 @@ typedef struct _widget {
 } Widget;
 
 typedef struct _window {
-    int id;
+    int     id;
     WINDOW* win;
-    char* title;
-    int width;
-    int height;
-    int num_widgets;
+    char*   title;
+    int     height;
+    int     width;
+    int     num_widgets;
     Widget* widgets;
 } Window;
 
@@ -80,9 +80,12 @@ int get_widget_index(Window* window, enum _widget_tag tag);
 /*
  * Creates a window. Pass a NULL title for no title
  * */
-Window* create_win(int id, char* title, int height, int width, int startx, int starty);
+Window* create_win(
+    int id, char* title, int height, int width, int startx, int starty
+);
 void free_win(Window* window);
 void refresh_win(Window* window, bool active);
+void resize_win(Window* win, UILayout* layout);
 void set_active_window(Window** active_win, Window* window);
 void refresh_controls(int win_id);
 

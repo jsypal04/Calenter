@@ -80,7 +80,7 @@ void render_schedule(Window* win, bool active) {
         char time_str[20] = "\0";
 
         if (event.all_day) {
-            sprintf(time_str, "ALL DAY"); 
+            sprintf(time_str, "ALL DAY");
         } else {
             char suffix[4] = "\0";
             if (event.datetime.tm_hour < 12) {
@@ -91,7 +91,7 @@ void render_schedule(Window* win, bool active) {
 
             int hour = event.datetime.tm_hour % 12;
             if (hour == 0) hour = 12;
-            
+
             format_time(time_str, hour, event.datetime.tm_min);
             if (hour != -1) strcpy(time_str + 5, suffix);
         }

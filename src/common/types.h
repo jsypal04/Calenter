@@ -21,18 +21,42 @@ typedef struct {
     Array* values;
 } BYxxx_Rule;
 
+typedef enum ui_unit_t {
+    CELLS = 0,
+    PERCENT = 1,
+} UIUnit;
+
+
+typedef struct ui_layout_t {
+    int    height;
+    int    width;
+    Array* layout_objs;
+} UILayout;
+
+typedef struct ui_layout_obj_t {
+    int       id;
+    float     r_height;
+    float     r_width;
+    float     r_starty;
+    float     r_startx;
+    UIUnit    unit;
+    UILayout* layout;
+} UILayoutObj;
+
 enum type {
-    INT,
-    FLOAT,
-    STRING,
-    BYXXX_RULE,
+    INT           = 0,
+    FLOAT         = 1,
+    STRING        = 2,
+    BYXXX_RULE    = 3,
+    UI_LAYOUT_OBJ = 4,
 };
 
 union element {
-    int i;
-    float f;
-    char* s;
-    BYxxx_Rule b;
+    int         i;
+    float       f;
+    char*       s;
+    BYxxx_Rule  b;
+    UILayoutObj lo;
 };
 
 

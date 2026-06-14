@@ -1,5 +1,6 @@
+#include "../../common/types.h"
+#include "../layout/layout.h"
 #include "array.h"
-#include "types.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -19,7 +20,7 @@ struct array_t {
  * */
 
 void expand_array(Array* array) {
-    union element* expanded_array = 
+    union element* expanded_array =
         malloc(sizeof(union element) * 2 * array->capacity);
 
     for (int i = 0; i < array->length; i++) {
@@ -38,17 +39,24 @@ Array* array_dup(Array* array) {
 
     for (int i = 0; i < array->length; i++) {
         switch (array->type) {
-            case INT: 
-                append_int(new_arr, get_int(array, i));
-                break;
+            case INT:
+            append_int(new_arr, get_int(array, i));
+            break;
+
             case FLOAT:
-                append_float(new_arr, get_float(array, i));
-                break;
+            append_float(new_arr, get_float(array, i));
+            break;
+
             case STRING:
-                append_string(new_arr, get_string(array, i));
-                break;
+            append_string(new_arr, get_string(array, i));
+            break;
+
             case BYXXX_RULE:
-                break;
+            break;
+
+            case UI_LAYOUT_OBJ:
+            append_UILayoutObj(new_arr, get_UILayoutObj(array, i));
+            break;
         }
     }
 
@@ -80,6 +88,13 @@ void free_array(Array* array) {
         for (int i = 0; i < array->length; i++) {
             free_array(array->array[i].b.values);
             array->array[i].b.values = NULL;
+        }
+    } else if (array->type == UI_LAYOUT_OBJ) {
+        for (int i = 0; i < array->length; i++) {
+            if (array->array[i].lo.layout == NULL)
+                continue;
+            free_layout(array->array[i].lo.layout);
+            array->array[i].lo.layout = NULL;
         }
     }
 
@@ -147,6 +162,20 @@ int append_BYxxx_Rule(Array* array, BYxxx_Rule rule) {
     return 0;
 }
 
+int append_UILayoutObj(Array* array, UILayoutObj layout_obj) {
+    if (array->type != UI_LAYOUT_OBJ) return -1;
+    if (array->length == array->capacity)
+        expand_array(array);
+
+    union element elem;
+    elem.lo = layout_obj;
+
+    array->array[array->length] = elem;
+    array->length++;
+
+    return 0;
+}
+
 int get_int(Array* array, int index) {
     assert(index < array->length);
     assert(array->type == INT);
@@ -169,6 +198,12 @@ BYxxx_Rule get_BYxxx_Rule(Array* array, int index) {
     assert(index < array->length);
     assert(array->type == BYXXX_RULE);
     return array->array[index].b;
+}
+
+UILayoutObj get_UILayoutObj(Array* array, int index) {
+    assert(index < array->length);
+    assert(array->type == UI_LAYOUT_OBJ);
+    return array->array[index].lo;
 }
 
 int array_len(Array* array) {
@@ -210,44 +245,59 @@ void print_array(Array* array) {
     for (int i = 0; i < array->length; i++) {
         switch (array->type) {
             case INT:
-                printf("%d ", array->array[i].i);
-                break;
+            printf("%d ", array->array[i].i);
+            break;
+
             case FLOAT:
-                printf("%f ", array->array[i].f);
-                break;
+            printf("%f ", array->array[i].f);
+            break;
+
             case STRING:
-                printf("\"%s\" ", array->array[i].s);
-                break;
+            printf("\"%s\" ", array->array[i].s);
+            break;
+
             case BYXXX_RULE:
-                switch (array->array[i].b.type) {
-                    case BYDAY:
-                        printf("BYDAY ");
-                        break;
-                    case BYHOUR:
-                        printf("BYHOUR ");
-                        break;
-                    case BYMINUTE:
-                        printf("BYMINUTE ");
-                        break;
-                    case BYMONTH:
-                        printf("BYMONTH ");
-                        break;
-                    case BYMONTHDAY:
-                        printf("BYMONTHDAY ");
-                        break;
-                    case BYSECOND:
-                        printf("BYSECOND ");
-                        break;
-                    case BYSETPOS:
-                        printf("BYSETPOS ");
-                        break;
-                    case BYWEEKNO:
-                        printf("BYWEEKNO ");
-                        break;
-                    case BYYEARDAY:
-                        printf("BYYEARDAY ");
-                        break;
-                }
+            switch (array->array[i].b.type) {
+                case BYDAY:
+                printf("BYDAY ");
+                break;
+
+                case BYHOUR:
+                printf("BYHOUR ");
+                break;
+
+                case BYMINUTE:
+                printf("BYMINUTE ");
+                break;
+
+                case BYMONTH:
+                printf("BYMONTH ");
+                break;
+
+                case BYMONTHDAY:
+                printf("BYMONTHDAY ");
+                break;
+
+                case BYSECOND:
+                printf("BYSECOND ");
+                break;
+
+                case BYSETPOS:
+                printf("BYSETPOS ");
+                break;
+
+                case BYWEEKNO:
+                printf("BYWEEKNO ");
+                break;
+
+                case BYYEARDAY:
+                printf("BYYEARDAY ");
+                break;
+            }
+
+            case UI_LAYOUT_OBJ:
+            printf("%d ", array->array[i].lo.id);
+            break;
         }
     }
     printf("\n");
