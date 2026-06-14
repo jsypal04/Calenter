@@ -60,6 +60,8 @@ clean:
 	rm -rf $(BUILD_DIR)/*
 
 install: $(BIN) $(NOTI)
+	mkdir -p $(APP_HOME)/.calendar
+
 	cp $(LIB) /usr/lib
 	ldconfig
 
@@ -67,6 +69,8 @@ install: $(BIN) $(NOTI)
 
 	cp $(BIN) $(APP_HOME)/.local/bin
 	cp $(NOTI) $(APP_HOME)/.local/bin
+
+	cp -r scripts $(APP_HOME)/.calendar
 
 
 .PHONY: all library binary daemon run clean install
