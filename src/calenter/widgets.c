@@ -2,7 +2,9 @@
 #include <assert.h>
 #include <time.h>
 #include <string.h>
+
 #include "calenter.h"
+#include "utils/debug.h"
 
 
 void add_widget(Window* window, Widget widget) {

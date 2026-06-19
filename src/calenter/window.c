@@ -1,8 +1,10 @@
 #include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "calenter.h"
 #include "layout/layout.h"
+#include "utils/ncurses-utils.h"
 
 extern Window* windows[NUM_WINDOWS];
 
@@ -15,6 +17,7 @@ Window* create_win(int id, char* title, int height, int width, int startx, int s
     window->height = height;
     window->widgets = NULL;
     window->win = newwin(height, width, starty, startx);
+    window->layout = new_layout(height, width, ROW);
 
     keypad(window->win, true);
 
@@ -95,6 +98,14 @@ void refresh_controls(int win_id) {
 }
 
 void resize_win(Window* win, UILayout* layout) {
-    wresize(win->win, get_height(layout, win->id), get_width(layout, win->id));
-    mvwin(win->win, get_starty(layout, win->id), get_startx(layout, win->id));
+    int width  = get_width(layout, win->id);
+    int height = get_height(layout, win->id);
+    int startx = get_startx(layout, win->id);
+    int starty = get_starty(layout, win->id);
+
+    wresize(win->win, height, width);
+    mvwin(win->win, starty, startx);
+
+    win->width = width;
+    win->height = height;
 }

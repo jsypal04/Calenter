@@ -1,6 +1,5 @@
 #include <asm-generic/errno-base.h>
 #include <assert.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <libnotify/notification.h>
 #include <ncurses.h>
@@ -9,45 +8,18 @@
 #include <libnotify/notify.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
 #include "calenter.h"
 #include "utils/config.h"
+#include "utils/daemon-utils.h"
 #include "utils/sync.h"
+#include "utils/ncurses-utils.h"
 #include "layout/layout.h"
+#include "utils/debug.h"
+#include "widgets/pane.h"
 
-#define DAEMON_FIFO "/tmp/calenter-notification-daemon.fifo"
 
-void debug_log(const char* format, ...) {
-#ifdef DEBUG
-    #include <time.h>
-    #include <stdio.h>
-    #define DEBUG_LOG_FILE "/.calendar/logs/debug.log"
 
-    time_t raw_time = time(NULL);
-    struct tm* info = localtime(&raw_time);
-    char buffer[80];
-
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", info);
-
-    char log_path[1024] = "\0";
-    char* home = getenv("HOME");
-    if (home == NULL) return;
-
-    sprintf(log_path, "%s%s", home, DEBUG_LOG_FILE);
-
-    va_list args;
-    va_start(args, format);
-
-    FILE* debug_log_file = fopen(log_path, "a");
-
-    fprintf(debug_log_file, "[%s] ", buffer);
-    vfprintf(debug_log_file, format, args);
-    va_end(args);
-
-    fclose(debug_log_file);
-#endif
-}
-
-void start_notification_daemon(Config config);
 void handle_key_press(Window** active_win, int key);
 
 Window* windows[NUM_WINDOWS];
@@ -57,46 +29,20 @@ int main() {
     notify_init("Calenter");
 
     Config config = read_config();
-    if (config.enable_notifications) {
-        start_notification_daemon(config);
-    }
-    else {
-        int fifo_fd = open(DAEMON_FIFO, O_WRONLY);
-        if (fifo_fd != -1) {
-            char buf[2] = "k";
-            write(fifo_fd, buf, 2);
-            close(fifo_fd);
-        }
-    }
+
+    handle_daemon_fifo(config);
 
     Window* active_win = NULL;
     int active_win_index = 0;
     int ch;
 
-    initscr();
-    set_escdelay(25);
-    curs_set(0);
-    clear();
-    noecho();
-    cbreak();
-    start_color();
+    setup_ncurses();
 
-    init_color(DARK_GREY, 251, 251, 251);
+    UILayout* layout = new_layout(LINES, COLS, ROW);
 
-    init_pair(ACTIVE_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK);
-    init_pair(INACTIVE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
-    init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, DARK_GREY);
-    init_pair(ACTIVE_INPUT_FIELD_PAIR, COLOR_WHITE, 8);
-    init_pair(CONTROLS_COLOR_PAIR, COLOR_BLUE, COLOR_BLACK);
-
-    UILayoutObj sched_layout_obj = init_layout_obj(SCHEDULE_WIN, 90.0,  67.0,  0.0,  0.0, PERCENT);
-    UILayoutObj cal_layout_obj   = init_layout_obj(CALENDAR_WIN, 90.0,  33.0,  0.0, 67.0, PERCENT);
-    UILayoutObj ctrl_layout_obj  = init_layout_obj(CONTROLS_WIN, 10.0, 100.0, 90.0,  0.0, PERCENT);
-
-    UILayout* layout = init_layout(LINES, COLS);
-    register_obj(layout, sched_layout_obj);
-    register_obj(layout, cal_layout_obj);
-    register_obj(layout, ctrl_layout_obj);
+    new_ui_pane(layout, SCHEDULE_WIN, "Daily Schedule");
+    new_ui_pane(layout, CALENDAR_WIN, "Calendar");
+    new_ui_pane(layout, CONTROLS_WIN, NULL);
 
     // Focusable windows
     windows[SCHEDULE_WIN] = create_win(
@@ -158,15 +104,19 @@ int main() {
 
             case KEY_RESIZE:
             erase();
+            refresh();
             resize_layout(layout, LINES, COLS);
 
-            resize_win(windows[SCHEDULE_WIN], layout);
+            werase(windows[CONTROLS_WIN]->win);
+            resize_win(windows[CONTROLS_WIN], layout);
+
             werase(windows[SCHEDULE_WIN]->win);
+            resize_win(windows[SCHEDULE_WIN], layout);
             render_schedule(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
             refresh_win(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
 
-            resize_win(windows[CALENDAR_WIN], layout);
             werase(windows[CALENDAR_WIN]->win);
+            resize_win(windows[CALENDAR_WIN], layout);
             render_calendar(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
             refresh_win(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
             break;
@@ -197,69 +147,6 @@ int main() {
 
     notify_uninit();
     return 0;
-}
-
-void start_notification_daemon(Config config) {
-    debug_log("Starting notification daemon...\n");
-    FILE* fp = popen("pidof calenter-notification-daemon", "r");
-    char pid_buff[16];
-
-    if (fgets(pid_buff, sizeof(pid_buff), fp) != NULL) {
-        debug_log("Daemon already running\n");
-        pclose(fp);
-        return;
-    }
-
-    char proc_dir[1024] = "\0";
-    ssize_t len = readlink("/proc/self/exe", proc_dir, sizeof(proc_dir) - 1);
-    if (len == -1) {
-        debug_log("Failed to start notification daemon.\n");
-        return;
-    }
-
-    if (mkfifo(DAEMON_FIFO, 0666) < 0) {
-       if (errno != EEXIST) {
-           debug_log("Failed to create FIFO. Daemon not started.\n");
-           return;
-       }
-    }
-
-    debug_log("proc_dir: %s\n", proc_dir);
-    char noti_path[2048] = "\0";
-    strncpy(noti_path, proc_dir, 1024);
-    strcpy(noti_path + strlen(proc_dir), "-notification-daemon");
-    debug_log("noti_path: %s\n", noti_path);
-
-    int pid = fork();
-    if (pid == 0) {
-        if (setsid() < 0) exit(EXIT_FAILURE);
-        umask(0);
-        chdir("/");
-
-        freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
-
-        int retval = execl(noti_path, "calenter-notification-daemon", NULL);
-        if (retval == -1) {
-            NotifyNotification* noti = notify_notification_new(
-                "Daemon Error",
-                "Failed to start the notification daemon",
-                ""
-            );
-            notify_notification_show(noti, NULL);
-            g_object_unref(G_OBJECT(noti));
-            notify_uninit();
-            _exit(EXIT_FAILURE);
-        }
-    } else if (pid > 0) {
-        int fifo_fd = open(DAEMON_FIFO, O_WRONLY);
-        char buf[10] = "\0";
-        sprintf(buf, "t%d", config.notify_time);
-        write(fifo_fd, buf, sizeof(buf));
-        close(fifo_fd);
-
-        debug_log("started noti daemon\n");
-    }
 }
 
 void handle_key_press(Window** active_win_ref, int key) {

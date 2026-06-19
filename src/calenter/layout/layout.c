@@ -4,13 +4,14 @@
 #include "layout.h"
 #include "../array/array.h"
 
-UILayout* init_layout(int height, int width) {
+UILayout* new_layout(int height, int width, LayoutType type) {
     UILayout* layout = malloc(sizeof(UILayout));
     bzero(layout, sizeof(UILayout));
 
     layout->height = height;
     layout->width  = width;
-    layout->layout_objs = new_array(10, UI_LAYOUT_OBJ);
+    layout->layout_objs = new_array(10, UI_OBJECT);
+    layout->layout_type = type;
 
     return layout;
 }
@@ -18,6 +19,22 @@ UILayout* init_layout(int height, int width) {
 void free_layout(UILayout* layout) {
     free_array(layout->layout_objs);
     free(layout);
+    layout = NULL;
+}
+
+UIFloat sum(UIFloat f1, UIFloat f2) {
+    assert(f1.unit == f2.unit);
+    UIFloat result = {0};
+    result.value = f1.value + f2.value;
+    result.unit = f1.unit;
+    return result;
+}
+
+void render(UILayout* layout) {
+    for (int i = 0; i < array_len(layout->layout_objs); i++) {
+        UIObject* object = get_UIObject(layout->layout_objs, i);
+        object->render(object);
+    }
 }
 
 void resize_layout(UILayout* layout, int height, int width) {
@@ -25,71 +42,118 @@ void resize_layout(UILayout* layout, int height, int width) {
     layout->width  = width;
 }
 
-UILayoutObj init_layout_obj(
-    int id, float height, float width, float starty, float startx, UIUnit unit
-) {
-    UILayoutObj layout_obj = {0};
-    layout_obj.id       = id;
-    layout_obj.r_height = height;
-    layout_obj.r_width  = width;
-    layout_obj.r_starty = starty;
-    layout_obj.r_startx = startx;
-    layout_obj.unit     = unit;
-    layout_obj.layout   = NULL;
+UIObject* new_ui_object(int id) {
+    UIObject* layout_obj = malloc(sizeof(UIObject));
+    bzero(layout_obj, sizeof(UIObject));
+
+    layout_obj->id       = id;
 
     return layout_obj;
 }
 
-void register_obj(UILayout* layout, UILayoutObj obj) {
-    // Enforce ID uniqueness (should replace the asserts eventually)
-    for (int i = 0; i < array_len(layout->layout_objs); i++) {
-        UILayoutObj o = get_UILayoutObj(layout->layout_objs, i);
-        assert(o.id != obj.id);
+void free_ui_object(UIObject* object) {
+    free(object);
+    object = NULL;
+}
+
+UIFloat new_ui_float(float value, UIUnit unit) {
+    UIFloat f = {0};
+    f.value = value;
+    f.unit = unit;
+    return f;
+}
+
+void add_object_to_row(UILayout* layout, UIObject* obj) {
+    assert(array_type(layout->layout_objs) == UI_OBJECT);
+
+    int num_objects = array_len(layout->layout_objs);
+    int capacity    = array_cap(layout->layout_objs);
+
+    if (num_objects == 0) {
+        obj->startx = new_ui_float(  0.0, PERCENT);
+        obj->starty = new_ui_float(  0.0, PERCENT);
+        obj->width  = new_ui_float(100.0, PERCENT);
+        obj->height = new_ui_float(100.0, PERCENT);
     }
 
-    append_UILayoutObj(layout->layout_objs, obj);
+    UIObject* prev_obj = get_UIObject(layout->layout_objs, num_objects - 1);
+
+    float new_width = 100.0 * (((float)num_objects + 1.0) / (float)layout->width);
+
+    obj->startx = sum(prev_obj->startx, prev_obj->width);
+    obj->starty = prev_obj->starty;
+    obj->width  = new_ui_float(new_width, PERCENT);
+    obj->height = prev_obj->height;
+
+    Array* updated_objects = new_array(capacity, UI_OBJECT);
+    for (int i = 0; i < num_objects; i++) {
+        UIObject* o = get_UIObject(layout->layout_objs, i);
+        o->width = new_ui_float(new_width, PERCENT);
+        append_UIObject(updated_objects, o);
+    }
+    free_array(layout->layout_objs);
+    layout->layout_objs = updated_objects;
+    append_UIObject(layout->layout_objs, obj);
+}
+
+void register_obj(UILayout* layout, UIObject* obj) {
+    // Enforce ID uniqueness (should replace the asserts eventually)
+    for (int i = 0; i < array_len(layout->layout_objs); i++) {
+        UIObject* o = get_UIObject(layout->layout_objs, i);
+        assert(o->id != obj->id);
+    }
+
+    switch (layout->layout_type) {
+        case ROW:
+        add_object_to_row(layout, obj);
+        break;
+    }
 }
 
 int get_value(
     UILayout* layout,
     int id,
-    float (*extractor)(UILayoutObj),
+    UIFloat (*extractor)(UIObject*),
     int   (*parent_extractor)(UILayout*)
 ) {
     bool not_found = true;
-    UILayoutObj obj;
+    UIObject* obj;
     for (int i = 0; i < array_len(layout->layout_objs); i++) {
-        obj = get_UILayoutObj(layout->layout_objs, i);
+        obj = get_UIObject(layout->layout_objs, i);
 
-        if (obj.id == id) {
+        if (obj->id == id) {
             not_found = false;
             break;
         }
     }
 
     if (not_found) return -1;
-    if (obj.unit == CELLS) return extractor(obj);
 
-    assert(obj.unit == PERCENT);
+    UIFloat ui_value = extractor(obj);
 
-    int width = (int)((extractor(obj) / 100.0) * (float)parent_extractor(layout));
-    return width;
+    if (ui_value.unit == CELLS) return ui_value.value;
+
+    assert(ui_value.unit == PERCENT);
+
+    int parent_value = parent_extractor(layout);
+    int value = (int)((ui_value.value / 100.0) * (float)parent_value);
+    return value;
 }
 
-float width_extractor(UILayoutObj obj) {
-    return obj.r_width;
+UIFloat width_extractor(UIObject* obj) {
+    return obj->width;
 }
 
-float height_extractor(UILayoutObj obj) {
-    return obj.r_height;
+UIFloat height_extractor(UIObject* obj) {
+    return obj->height;
 }
 
-float startx_extractor(UILayoutObj obj) {
-    return obj.r_startx;
+UIFloat startx_extractor(UIObject* obj) {
+    return obj->startx;
 }
 
-float starty_extractor(UILayoutObj obj) {
-    return obj.r_starty;
+UIFloat starty_extractor(UIObject* obj) {
+    return obj->starty;
 }
 
 int parent_width_extractor(UILayout* layout) {

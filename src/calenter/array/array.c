@@ -1,12 +1,11 @@
-#include "../../common/types.h"
-#include "../layout/layout.h"
-#include "array.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
+#include "../../common/types.h"
 
 struct array_t {
     unsigned int length;
@@ -54,8 +53,8 @@ Array* array_dup(Array* array) {
             case BYXXX_RULE:
             break;
 
-            case UI_LAYOUT_OBJ:
-            append_UILayoutObj(new_arr, get_UILayoutObj(array, i));
+            case UI_OBJECT:
+            append_UIObject(new_arr, get_UIObject(array, i));
             break;
         }
     }
@@ -88,13 +87,6 @@ void free_array(Array* array) {
         for (int i = 0; i < array->length; i++) {
             free_array(array->array[i].b.values);
             array->array[i].b.values = NULL;
-        }
-    } else if (array->type == UI_LAYOUT_OBJ) {
-        for (int i = 0; i < array->length; i++) {
-            if (array->array[i].lo.layout == NULL)
-                continue;
-            free_layout(array->array[i].lo.layout);
-            array->array[i].lo.layout = NULL;
         }
     }
 
@@ -162,13 +154,13 @@ int append_BYxxx_Rule(Array* array, BYxxx_Rule rule) {
     return 0;
 }
 
-int append_UILayoutObj(Array* array, UILayoutObj layout_obj) {
-    if (array->type != UI_LAYOUT_OBJ) return -1;
+int append_UIObject(Array* array, UIObject* object) {
+    if (array->type != UI_OBJECT) return -1;
     if (array->length == array->capacity)
         expand_array(array);
 
     union element elem;
-    elem.lo = layout_obj;
+    elem.uio = object;
 
     array->array[array->length] = elem;
     array->length++;
@@ -200,10 +192,28 @@ BYxxx_Rule get_BYxxx_Rule(Array* array, int index) {
     return array->array[index].b;
 }
 
-UILayoutObj get_UILayoutObj(Array* array, int index) {
+UIObject* get_UIObject(Array* array, int index) {
     assert(index < array->length);
-    assert(array->type == UI_LAYOUT_OBJ);
-    return array->array[index].lo;
+    assert(array->type == UI_OBJECT);
+    return array->array[index].uio;
+}
+
+UIObject* pop_UIObject(Array* array, int index) {
+    assert(index < array->length);
+    assert(array->type == UI_OBJECT);
+    UIObject* value = array->array[index].uio;
+
+    if (index == array->length - 1) {
+        array->length--;
+        return value;
+    }
+
+    for (int i = index + 1; i < array->length; i++) {
+        array->array[i - 1] = array->array[i];
+    }
+
+    array->length--;
+    return value;
 }
 
 int array_len(Array* array) {
@@ -295,8 +305,8 @@ void print_array(Array* array) {
                 break;
             }
 
-            case UI_LAYOUT_OBJ:
-            printf("%d ", array->array[i].lo.id);
+            case UI_OBJECT:
+            printf("%d ", array->array[i].uio->id);
             break;
         }
     }

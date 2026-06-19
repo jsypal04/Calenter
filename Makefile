@@ -1,8 +1,15 @@
 APP_USER=$(shell stat -c '%U' .)
 APP_HOME=$(shell getent passwd $(APP_USER) | cut -d: -f6)
 
+DEBUG=true
+
 CC = gcc
 CFLAGS = -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
+
+ifeq ($(DEBUG), true)
+	CFLAGS += -g -DDEBUG
+endif
+
 LDLIBS = -lncurses -lcurl
 BUILD_DIR = build
 

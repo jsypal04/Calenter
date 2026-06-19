@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <stdbool.h>
+#include <ncurses.h>
 
 typedef struct array_t Array;
 
@@ -26,29 +27,53 @@ typedef enum ui_unit_t {
     PERCENT = 1,
 } UIUnit;
 
+typedef struct ui_object_t UIObject;
+typedef void (*Renderer)(UIObject*);
+
+typedef struct ui_float_t {
+    float value;
+    UIUnit unit;
+} UIFloat;
+
+typedef enum layouts_t {
+    ROW,
+} LayoutType;
 
 typedef struct ui_layout_t {
-    int    height;
-    int    width;
-    Array* layout_objs;
+    int        height;
+    int        width;
+    LayoutType layout_type;
+    Array*     layout_objs;
 } UILayout;
 
-typedef struct ui_layout_obj_t {
-    int       id;
-    float     r_height;
-    float     r_width;
-    float     r_starty;
-    float     r_startx;
-    UIUnit    unit;
+typedef struct pane_t {
+    bool      is_active;
     UILayout* layout;
-} UILayoutObj;
+    WINDOW*   win;
+    char*     title;
+} UIPane;
+
+typedef struct ui_object_t {
+    int           id;
+    enum componant {
+        PANE = 0,
+    }      componant;
+    UIFloat   height;
+    UIFloat    width;
+    UIFloat   startx;
+    UIFloat   starty;
+    union {
+        UIPane* pane;
+    }           data;
+    Renderer  render;
+} UIObject;
 
 enum type {
     INT           = 0,
     FLOAT         = 1,
     STRING        = 2,
     BYXXX_RULE    = 3,
-    UI_LAYOUT_OBJ = 4,
+    UI_OBJECT     = 4,
 };
 
 union element {
@@ -56,7 +81,7 @@ union element {
     float       f;
     char*       s;
     BYxxx_Rule  b;
-    UILayoutObj lo;
+    UIObject* uio;
 };
 
 

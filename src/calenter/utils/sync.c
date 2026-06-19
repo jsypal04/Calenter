@@ -19,8 +19,10 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "glib-object.h"
+
+
 #include "sync.h"
-#include "../calenter.h"
+#include "debug.h"
 #include "../../common/calendartxt.h"
 #include "../ics/ics.h"
 

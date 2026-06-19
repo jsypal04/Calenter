@@ -4,7 +4,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+
 #include "calenter.h"
+#include "utils/ncurses-utils.h"
 
 #define NUM_INPUTS 7
 

@@ -4,18 +4,19 @@
 #include "../../common/types.h"
 
 
+void render(UILayout* layout);
 
-UILayout* init_layout(int height, int width);
+UILayout* new_layout(int height, int width, LayoutType type);
 
 void free_layout(UILayout* layout);
 
 void resize_layout(UILayout* layout, int height, int width);
 
-UILayoutObj init_layout_obj(
-    int id, float height, float width, float starty, float startx, UIUnit unit
-);
+UIObject* new_ui_object(int id);
 
-void register_obj(UILayout* layout, UILayoutObj obj);
+void free_ui_object(UIObject* object);
+
+void register_obj(UILayout* layout, UIObject* obj);
 
 int get_width( UILayout* layout, int id);
 int get_height(UILayout* layout, int id);

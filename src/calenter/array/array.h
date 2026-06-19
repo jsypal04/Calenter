@@ -43,7 +43,7 @@ int append_string(Array* array, char* val);
  */
 int append_BYxxx_Rule(Array* array, BYxxx_Rule rule);
 
-int append_UILayoutObj(Array* array, UILayoutObj layout_obj);
+int append_UIObject(Array* array, UIObject* layout_obj);
 
 int get_int(Array* array, int index);
 
@@ -61,7 +61,11 @@ char* get_string(Array* array, int index);
  * */
 BYxxx_Rule get_BYxxx_Rule(Array* array, int index);
 
-UILayoutObj get_UILayoutObj(Array* array, int index);
+UIObject* get_UIObject(Array* array, int index);
+
+// TODO: Implement the pop methods for the rest of the types
+
+UIObject* pop_UIObject(Array* array, int index);
 
 int array_len(Array* array);
 
