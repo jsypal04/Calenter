@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <strings.h>
 #include "layout.h"
+#include "../widgets/pane.h"
 #include "../array/array.h"
+#include "../utils/debug.h"
 
 UILayout* new_layout(int height, int width, LayoutType type) {
     UILayout* layout = malloc(sizeof(UILayout));
@@ -17,6 +19,8 @@ UILayout* new_layout(int height, int width, LayoutType type) {
 }
 
 void free_layout(UILayout* layout) {
+    LOG_FUNC("Running free_layout");
+
     free_array(layout->layout_objs);
     free(layout);
     layout = NULL;
@@ -31,7 +35,9 @@ UIFloat sum(UIFloat f1, UIFloat f2) {
 }
 
 void render(UILayout* layout) {
-    for (int i = 0; i < array_len(layout->layout_objs); i++) {
+    int num_objects = array_len(layout->layout_objs);
+
+    for (int i = 0; i < num_objects; i++) {
         UIObject* object = get_UIObject(layout->layout_objs, i);
         object->render(object);
     }
@@ -46,12 +52,18 @@ UIObject* new_ui_object(int id) {
     UIObject* layout_obj = malloc(sizeof(UIObject));
     bzero(layout_obj, sizeof(UIObject));
 
-    layout_obj->id       = id;
+    layout_obj->id = id;
 
     return layout_obj;
 }
 
 void free_ui_object(UIObject* object) {
+    LOG_FUNC("Running free_ui_object");
+
+    debug_log("object->data.pane = %x\n");
+    if (object->data.pane != NULL)
+        free_ui_pane(object->data.pane);
+
     free(object);
     object = NULL;
 }
@@ -63,50 +75,55 @@ UIFloat new_ui_float(float value, UIUnit unit) {
     return f;
 }
 
-void add_object_to_row(UILayout* layout, UIObject* obj) {
-    assert(array_type(layout->layout_objs) == UI_OBJECT);
-
-    int num_objects = array_len(layout->layout_objs);
-    int capacity    = array_cap(layout->layout_objs);
-
-    if (num_objects == 0) {
-        obj->startx = new_ui_float(  0.0, PERCENT);
-        obj->starty = new_ui_float(  0.0, PERCENT);
-        obj->width  = new_ui_float(100.0, PERCENT);
-        obj->height = new_ui_float(100.0, PERCENT);
-    }
-
-    UIObject* prev_obj = get_UIObject(layout->layout_objs, num_objects - 1);
-
-    float new_width = 100.0 * (((float)num_objects + 1.0) / (float)layout->width);
-
-    obj->startx = sum(prev_obj->startx, prev_obj->width);
-    obj->starty = prev_obj->starty;
-    obj->width  = new_ui_float(new_width, PERCENT);
-    obj->height = prev_obj->height;
-
-    Array* updated_objects = new_array(capacity, UI_OBJECT);
-    for (int i = 0; i < num_objects; i++) {
-        UIObject* o = get_UIObject(layout->layout_objs, i);
-        o->width = new_ui_float(new_width, PERCENT);
-        append_UIObject(updated_objects, o);
-    }
-    free_array(layout->layout_objs);
-    layout->layout_objs = updated_objects;
-    append_UIObject(layout->layout_objs, obj);
-}
-
-void register_obj(UILayout* layout, UIObject* obj) {
+void register_ui_pane(UILayout* layout, UIPane* pane, int id) {
     // Enforce ID uniqueness (should replace the asserts eventually)
     for (int i = 0; i < array_len(layout->layout_objs); i++) {
         UIObject* o = get_UIObject(layout->layout_objs, i);
-        assert(o->id != obj->id);
+        assert(o->id != id);
     }
+    UIObject* object = new_ui_object(id);
+
+    object->componant = PANE;
+    object->data.pane = pane;
+
+    object->render = render_ui_pane;
+    object->resize = resize_ui_pane;
+
+    append_UIObject(layout->layout_objs, object);
+}
+
+void set_row_layout(UILayout* layout) {
+    LOG_FUNC("Running set_row_layout");
+
+    int num_objects = array_len(layout->layout_objs);
+
+    float width_percent = 100.0 / (float)num_objects;
+
+    UIFloat  width = new_ui_float(width_percent, PERCENT);
+    UIFloat height = new_ui_float(100.0, PERCENT);
+    UIFloat startx = new_ui_float(0.0, PERCENT);
+    UIFloat starty = new_ui_float(0.0, PERCENT);
+
+    for (int i = 0; i < num_objects; i++) {
+        UIObject* obj = get_UIObject(layout->layout_objs, i);
+
+        obj->width = width;
+        obj->height = height;
+        obj->startx = startx;
+        obj->starty = starty;
+
+        obj->resize(layout, obj);
+
+        startx = sum(width, startx);
+    }
+}
+
+void set_layout(UILayout* layout) {
+    LOG_FUNC("Running set_layout");
 
     switch (layout->layout_type) {
         case ROW:
-        add_object_to_row(layout, obj);
-        break;
+        set_row_layout(layout);
     }
 }
 

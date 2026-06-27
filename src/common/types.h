@@ -27,8 +27,11 @@ typedef enum ui_unit_t {
     PERCENT = 1,
 } UIUnit;
 
+typedef struct ui_layout_t UILayout;
 typedef struct ui_object_t UIObject;
+
 typedef void (*Renderer)(UIObject*);
+typedef void (*Resizer)(UILayout*, UIObject*);
 
 typedef struct ui_float_t {
     float value;
@@ -63,9 +66,10 @@ typedef struct ui_object_t {
     UIFloat   startx;
     UIFloat   starty;
     union {
-        UIPane* pane;
+        UIPane* pane; // This is sometimes NULL
     }           data;
     Renderer  render;
+    Resizer   resize;
 } UIObject;
 
 enum type {

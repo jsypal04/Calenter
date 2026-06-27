@@ -6,6 +6,8 @@
 
 #include "array.h"
 #include "../../common/types.h"
+#include "../layout/layout.h"
+#include "../utils/debug.h"
 
 struct array_t {
     unsigned int length;
@@ -78,6 +80,8 @@ Array* new_array(unsigned int capacity, enum type type) {
 }
 
 void free_array(Array* array) {
+    LOG_FUNC("Running free_array");
+
     if (array->type == STRING) {
         for (int i = 0; i < array->length; i++) {
             free(array->array[i].s);
@@ -87,6 +91,12 @@ void free_array(Array* array) {
         for (int i = 0; i < array->length; i++) {
             free_array(array->array[i].b.values);
             array->array[i].b.values = NULL;
+        }
+    } else if (array->type == UI_OBJECT) {
+        for (int i = 0; i < array->length; i++) {
+            debug_log("i = %d\n", i);
+            free_ui_object(array->array[i].uio);
+            array->array[i].uio = NULL;
         }
     }
 

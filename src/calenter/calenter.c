@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "calenter.h"
+#include "array/array.h"
 #include "utils/config.h"
 #include "utils/daemon-utils.h"
 #include "utils/sync.h"
@@ -24,76 +25,55 @@ void handle_key_press(Window** active_win, int key);
 
 Window* windows[NUM_WINDOWS];
 
+UIPane* active_pane = NULL;
+
 int main() {
-    debug_log("Starting UI...\n");
+    debug_log("\033[32mStarting UI...\033[0m\n");
     notify_init("Calenter");
 
     Config config = read_config();
 
     handle_daemon_fifo(config);
 
-    Window* active_win = NULL;
-    int active_win_index = 0;
+    // Window* active_win = NULL;
+    // int active_win_index = 0;
     int ch;
 
     setup_ncurses();
 
     UILayout* layout = new_layout(LINES, COLS, ROW);
 
-    new_ui_pane(layout, SCHEDULE_WIN, "Daily Schedule");
-    new_ui_pane(layout, CALENDAR_WIN, "Calendar");
-    new_ui_pane(layout, CONTROLS_WIN, NULL);
+    UIPane* schedule_pane = new_ui_pane(layout, "Daily Schedule");
+    UIPane* calendar_pane = new_ui_pane(layout, "Calendar");
+    UIPane* controls_pane = new_ui_pane(layout, NULL);
 
-    // Focusable windows
-    windows[SCHEDULE_WIN] = create_win(
-        SCHEDULE_WIN, "Daily Schedule",
-        get_height(layout, SCHEDULE_WIN), get_width(layout, SCHEDULE_WIN),
-        get_startx(layout, SCHEDULE_WIN), get_starty(layout, SCHEDULE_WIN)
-    );
-    windows[CALENDAR_WIN] = create_win(
-        CALENDAR_WIN, "Calendar",
-        get_height(layout, CALENDAR_WIN), get_width(layout, CALENDAR_WIN),
-        get_startx(layout, CALENDAR_WIN), get_starty(layout, CALENDAR_WIN)
-    );
+    register_ui_pane(layout, schedule_pane, SCHEDULE_WIN);
+    register_ui_pane(layout, calendar_pane, CALENDAR_WIN);
+    register_ui_pane(layout, controls_pane, CONTROLS_WIN);
 
-    // Non-focusable windows
-    windows[CONTROLS_WIN] = create_win(
-        CONTROLS_WIN, NULL,
-        get_width(layout, CONTROLS_WIN), get_width(layout, CONTROLS_WIN),
-        get_startx(layout, CONTROLS_WIN), get_starty(layout, CONTROLS_WIN)
-    );
+    set_layout(layout);
+    set_active_pane(layout, SCHEDULE_WIN);
 
-    Widget calendar_widget;
-    init_calendar(&calendar_widget);
-
-    Widget schedule_widget;
-    init_schedule(&schedule_widget);
-
-    add_widget(windows[SCHEDULE_WIN], schedule_widget);
-    add_widget(windows[CALENDAR_WIN], calendar_widget);
-
-    render_schedule(windows[SCHEDULE_WIN], true);
-    render_calendar(windows[CALENDAR_WIN], false);
-
-    set_active_window(&active_win, windows[active_win_index]);
+    render(layout);
 
     while (true) {
-        ch = wgetch(active_win->win);
+        ch = wgetch(active_pane->win);
+        debug_log("\033[31mkey press: '%c'\033[0m\n", ch);
 
         switch (ch) {
             case '\t': {
-                active_win_index =
-                    active_win_index < NUM_FOCUSABLE_WINDOWS - 1 ?
-                    active_win_index + 1 : 0;
-                set_active_window(&active_win, windows[active_win_index]);
+                // active_win_index =
+                //     active_win_index < NUM_FOCUSABLE_WINDOWS - 1 ?
+                //     active_win_index + 1 : 0;
+                // set_active_window(&active_win, windows[active_win_index]);
                 break;
             }
             case KEY_BTAB: {
-                active_win_index =
-                    active_win_index > 0 ?
-                    active_win_index - 1 :
-                    NUM_FOCUSABLE_WINDOWS - 1;
-                set_active_window(&active_win, windows[active_win_index]);
+                // active_win_index =
+                //     active_win_index > 0 ?
+                //     active_win_index - 1 :
+                //     NUM_FOCUSABLE_WINDOWS - 1;
+                // set_active_window(&active_win, windows[active_win_index]);
                 break;
             }
 
@@ -102,33 +82,33 @@ int main() {
                 sync_calendar(config.remote_url);
             break;
 
-            case KEY_RESIZE:
-            erase();
-            refresh();
-            resize_layout(layout, LINES, COLS);
+            // case KEY_RESIZE:
+            // erase();
+            // refresh();
+            // resize_layout(layout, LINES, COLS);
 
-            werase(windows[CONTROLS_WIN]->win);
-            resize_win(windows[CONTROLS_WIN], layout);
+            // werase(windows[CONTROLS_WIN]->win);
+            // resize_win(windows[CONTROLS_WIN], layout);
 
-            werase(windows[SCHEDULE_WIN]->win);
-            resize_win(windows[SCHEDULE_WIN], layout);
-            render_schedule(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
-            refresh_win(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
+            // werase(windows[SCHEDULE_WIN]->win);
+            // resize_win(windows[SCHEDULE_WIN], layout);
+            // render_schedule(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
+            // refresh_win(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
 
-            werase(windows[CALENDAR_WIN]->win);
-            resize_win(windows[CALENDAR_WIN], layout);
-            render_calendar(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
-            refresh_win(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
-            break;
+            // werase(windows[CALENDAR_WIN]->win);
+            // resize_win(windows[CALENDAR_WIN], layout);
+            // render_calendar(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
+            // refresh_win(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
+            // break;
 
             case ERR:
             debug_log("Received %d from wgetch\n", ch);
-            free_win(windows[0]);
-            free_win(windows[1]);
+            // free_win(windows[0]);
+            // free_win(windows[1]);
             endwin();
             exit(1);
 
-            default: handle_key_press(&active_win, ch);
+            // default: handle_key_press(&active_win, ch);
         };
 
         if (ch == 'q') {
@@ -136,11 +116,13 @@ int main() {
         }
     }
 
-    free_win(windows[0]);
-    free_win(windows[1]);
-    endwin();
-
+    // free_win(windows[0]);
+    // free_win(windows[1]);
+    UIObject* o = get_UIObject(layout->layout_objs, 0);
+    debug_log("o->data.pane = %x\n", o->data.pane);
     free_layout(layout);
+
+    endwin();
 
     free(config.remote_url);
     config.remote_url = NULL;
