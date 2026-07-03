@@ -14,9 +14,13 @@ void resize_layout(UILayout* layout, int height, int width);
 
 void set_layout(UILayout* layout);
 
-void register_ui_pane(UILayout* layout, UIPane* pane, int id);
+void register_ui_pane(
+    UILayout* layout, UIPane* pane, int id, GridParams* params
+);
 
-UIObject* new_ui_object(int id);
+GridParams new_grid_params(int col, int row, int colspan, int rowspan);
+
+UIObject* new_ui_object(int id, GridParams* params);
 
 void free_ui_object(UIObject* object);
 

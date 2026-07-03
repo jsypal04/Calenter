@@ -22,6 +22,7 @@
 
 
 void handle_key_press(Window** active_win, int key);
+void cleanup(UILayout* layout, Config config);
 
 Window* windows[NUM_WINDOWS];
 
@@ -41,20 +42,30 @@ int main() {
 
     setup_ncurses();
 
-    UILayout* layout = new_layout(LINES, COLS, ROW);
+    UILayout* layout = new_layout(LINES, COLS, GRID);
+
+    GridParams sched_params = new_grid_params(0, 0, 2, 3);
+    GridParams cal_params   = new_grid_params(2, 0, 1, 3);
+    GridParams ctrl_params  = new_grid_params(0, 3, 3, 1);
 
     UIPane* schedule_pane = new_ui_pane(layout, "Daily Schedule");
     UIPane* calendar_pane = new_ui_pane(layout, "Calendar");
     UIPane* controls_pane = new_ui_pane(layout, NULL);
 
-    register_ui_pane(layout, schedule_pane, SCHEDULE_WIN);
-    register_ui_pane(layout, calendar_pane, CALENDAR_WIN);
-    register_ui_pane(layout, controls_pane, CONTROLS_WIN);
+    register_ui_pane(layout, schedule_pane, SCHEDULE_WIN, &sched_params);
+    register_ui_pane(layout, calendar_pane, CALENDAR_WIN, &cal_params);
+    register_ui_pane(layout, controls_pane, CONTROLS_WIN, &ctrl_params);
 
     set_layout(layout);
     set_active_pane(layout, SCHEDULE_WIN);
 
     render(layout);
+
+    if (active_pane == NULL) {
+        debug_log("Did not set active_pane before event loop, exiting...\n");
+        cleanup(layout, config);
+        exit(EXIT_FAILURE);
+    }
 
     while (true) {
         ch = wgetch(active_pane->win);
@@ -105,8 +116,8 @@ int main() {
             debug_log("Received %d from wgetch\n", ch);
             // free_win(windows[0]);
             // free_win(windows[1]);
-            endwin();
-            exit(1);
+            cleanup(layout, config);
+            exit(EXIT_FAILURE);
 
             // default: handle_key_press(&active_win, ch);
         };
@@ -118,17 +129,16 @@ int main() {
 
     // free_win(windows[0]);
     // free_win(windows[1]);
-    UIObject* o = get_UIObject(layout->layout_objs, 0);
-    debug_log("o->data.pane = %x\n", o->data.pane);
+    cleanup(layout, config);
+    return EXIT_SUCCESS;
+}
+
+void cleanup(UILayout* layout, Config config) {
     free_layout(layout);
-
     endwin();
-
     free(config.remote_url);
     config.remote_url = NULL;
-
     notify_uninit();
-    return 0;
 }
 
 void handle_key_press(Window** active_win_ref, int key) {

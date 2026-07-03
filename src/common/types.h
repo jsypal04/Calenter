@@ -39,8 +39,17 @@ typedef struct ui_float_t {
 } UIFloat;
 
 typedef enum layouts_t {
-    ROW,
+    ROW   = 0,
+    STACK = 1,
+    GRID  = 2,
 } LayoutType;
+
+typedef struct grid_params_t {
+    int     col;
+    int     row;
+    int colspan;
+    int rowspan;
+} GridParams;
 
 typedef struct ui_layout_t {
     int        height;
@@ -61,6 +70,7 @@ typedef struct ui_object_t {
     enum componant {
         PANE = 0,
     }      componant;
+    GridParams grid_params;
     UIFloat   height;
     UIFloat    width;
     UIFloat   startx;

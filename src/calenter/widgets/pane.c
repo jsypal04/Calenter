@@ -102,7 +102,6 @@ void resize_ui_pane(UILayout* parent_layout, UIObject* object) {
     debug_log("startx = %d\n", startx);
 
     if (pane->win == NULL) {
-        LOG_LOCATION();
         pane->win = newwin(height, width, starty, startx);
     } else {
         wresize(pane->win, height, width);
