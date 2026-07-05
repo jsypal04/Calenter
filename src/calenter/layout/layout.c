@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <strings.h>
+
 #include "layout.h"
+#include "../widgets/text.h"
 #include "../widgets/pane.h"
 #include "../array/array.h"
 #include "../utils/debug.h"
@@ -42,18 +44,21 @@ UIFloat product(UIFloat f1, UIFloat f2) {
     return result;
 }
 
-void render(UILayout* layout) {
+void render(UILayout* layout, UIPane* pane) {
     int num_objects = array_len(layout->layout_objs);
 
     for (int i = 0; i < num_objects; i++) {
         UIObject* object = get_UIObject(layout->layout_objs, i);
-        object->render(object);
-    }
-}
+        switch (object->componant) {
+            case PANE:
+            render_ui_pane(object);
+            break;
 
-void resize_layout(UILayout* layout, int height, int width) {
-    layout->height = height;
-    layout->width  = width;
+            case TEXT:
+            render_ui_text(pane, object);
+            break;
+        }
+    }
 }
 
 UIObject* new_ui_object(int id, GridParams* params) {
@@ -79,8 +84,17 @@ void free_ui_object(UIObject* object) {
     LOG_FUNC("Running free_ui_object");
 
     debug_log("object->data.pane = %x\n");
-    if (object->data.pane != NULL)
-        free_ui_pane(object->data.pane);
+    switch (object->componant) {
+        case PANE:
+        if (object->data.pane != NULL)
+            free_ui_pane(object->data.pane);
+        break;
+
+        case TEXT:
+        if (object->data.text != NULL)
+            free_ui_text(object->data.text);
+        break;
+    }
 
     free(object);
     object = NULL;
@@ -102,24 +116,43 @@ UIFloat new_ui_float(float value, UIUnit unit) {
     return f;
 }
 
+void enforce_id_uniqueness(UILayout* layout, int id) {
+    for (int i = 0; i < array_len(layout->layout_objs); i++) {
+        UIObject* o = get_UIObject(layout->layout_objs, i);
+        assert(o->id != id);
+    }
+}
+
 void register_ui_pane(UILayout* layout, UIPane* pane, int id, GridParams* params) {
     if (layout->layout_type == GRID) {
         assert(params != NULL);
     }
 
-    // Enforce ID uniqueness (should replace the asserts eventually)
-    for (int i = 0; i < array_len(layout->layout_objs); i++) {
-        UIObject* o = get_UIObject(layout->layout_objs, i);
-        assert(o->id != id);
-    }
+    enforce_id_uniqueness(layout, id);
 
     UIObject* object = new_ui_object(id, params);
 
     object->componant = PANE;
     object->data.pane = pane;
 
-    object->render = render_ui_pane;
     object->resize = resize_ui_pane;
+
+    append_UIObject(layout->layout_objs, object);
+}
+
+void register_ui_text(UILayout* layout, UIText* text, int id, GridParams* params) {
+    assert(layout != NULL);
+    if (layout->layout_type == GRID) {
+        assert(params != NULL);
+    }
+    enforce_id_uniqueness(layout, id);
+
+    UIObject* object = new_ui_object(id, params);
+
+    object->componant = TEXT;
+    object->data.text = text;
+
+    object->resize = resize_ui_text;
 
     append_UIObject(layout->layout_objs, object);
 }
@@ -288,6 +321,15 @@ void set_layout(UILayout* layout) {
 
         default:
         debug_log("Unkown layout type %d\n", layout->layout_type);
+    }
+
+    int num_objects = array_len(layout->layout_objs);
+    for (int i = 0; i < num_objects; i++) {
+        UIObject* obj = get_UIObject(layout->layout_objs, i);
+        if (obj->componant == PANE && obj->data.pane != NULL) {
+            UIPane* pane = obj->data.pane;
+            set_layout(pane->layout);
+        }
     }
 }
 

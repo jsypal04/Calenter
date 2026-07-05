@@ -29,8 +29,9 @@ typedef enum ui_unit_t {
 
 typedef struct ui_layout_t UILayout;
 typedef struct ui_object_t UIObject;
+typedef struct pane_t UIPane;
+typedef struct ui_text_t UIText;
 
-typedef void (*Renderer)(UIObject*);
 typedef void (*Resizer)(UILayout*, UIObject*);
 
 typedef struct ui_float_t {
@@ -69,6 +70,7 @@ typedef struct ui_object_t {
     int           id;
     enum componant {
         PANE = 0,
+        TEXT = 1,
     }      componant;
     GridParams grid_params;
     UIFloat   height;
@@ -77,8 +79,8 @@ typedef struct ui_object_t {
     UIFloat   starty;
     union {
         UIPane* pane; // This is sometimes NULL
+        UIText* text;
     }           data;
-    Renderer  render;
     Resizer   resize;
 } UIObject;
 

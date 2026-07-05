@@ -1,3 +1,10 @@
+/**
+ * window.c
+ *
+ * Legacy file for managing a custom Window type. Will be depricated by new
+ * layout system.
+ */
+
 #include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>

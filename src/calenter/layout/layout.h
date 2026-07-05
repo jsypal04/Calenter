@@ -4,19 +4,19 @@
 #include "../../common/types.h"
 
 
-void render(UILayout* layout);
+void render(UILayout* layout, UIPane* pane);
 
 UILayout* new_layout(int height, int width, LayoutType type);
 
 void free_layout(UILayout* layout);
-
-void resize_layout(UILayout* layout, int height, int width);
 
 void set_layout(UILayout* layout);
 
 void register_ui_pane(
     UILayout* layout, UIPane* pane, int id, GridParams* params
 );
+
+void register_ui_text(UILayout* layout, UIText* text, int id, GridParams* params);
 
 GridParams new_grid_params(int col, int row, int colspan, int rowspan);
 

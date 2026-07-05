@@ -10,9 +10,9 @@
 #include "../layout/layout.h"
 #include "../array/array.h"
 
-extern UIPane* active_pane;
+extern UIObject* active_pane;
 
-UIPane* new_ui_pane(UILayout* parent_layout, char* title) {
+UIPane* new_ui_pane(UILayout* parent_layout, char* title, LayoutType layout_type) {
     LOG_FUNC("Running new_ui_pane");
 
     UIPane* pane = malloc(sizeof(UIPane));
@@ -24,6 +24,7 @@ UIPane* new_ui_pane(UILayout* parent_layout, char* title) {
         pane->title = strdup(title);
 
     pane->is_active = false;
+    pane->layout = new_layout(parent_layout->height, parent_layout->width, layout_type);
 
     return pane;
 }
@@ -76,7 +77,7 @@ void render_ui_pane(UIObject *object) {
     }
     wattroff(pane->win, A_BOLD);
 
-    render(pane->layout);
+    render(pane->layout, pane);
 
     int ret = wrefresh(pane->win);
 
@@ -88,6 +89,8 @@ void resize_ui_pane(UILayout* parent_layout, UIObject* object) {
     LOG_FUNC("Running resize_ui_pane");
 
     assert(object->componant == PANE);
+    assert(object->data.pane != NULL);
+    assert(object->data.pane->layout != NULL);
 
     UIPane* pane = object->data.pane;
 
@@ -96,25 +99,16 @@ void resize_ui_pane(UILayout* parent_layout, UIObject* object) {
     int starty = get_starty(parent_layout, object->id);
     int startx = get_startx(parent_layout, object->id);
 
-    debug_log("height = %d\n", height);
-    debug_log("width = %d\n", width);
-    debug_log("starty = %d\n", starty);
-    debug_log("startx = %d\n", startx);
-
     if (pane->win == NULL) {
         pane->win = newwin(height, width, starty, startx);
     } else {
+        werase(pane->win);
         wresize(pane->win, height, width);
         wmove(pane->win, starty, startx);
     }
 
-    if (pane->layout != NULL) {
-        pane->layout->height = height;
-        pane->layout->width  = width;
-    } else {
-        // TODO: the layout type needs to be parameterized
-        pane->layout = new_layout(height, width, ROW);
-    }
+    pane->layout->height = height;
+    pane->layout->width  = width;
 
     assert(pane->layout->layout_objs != NULL);
     assert(array_type(object->data.pane->layout->layout_objs) == UI_OBJECT);
@@ -124,6 +118,43 @@ void resize_ui_pane(UILayout* parent_layout, UIObject* object) {
         UIObject* o = get_UIObject(pane->layout->layout_objs, i);
         o->resize(pane->layout, o);
     }
+}
+
+
+int set_next_active_pane(UILayout* layout) {
+    assert(layout->layout_objs != NULL);
+    assert(array_type(layout->layout_objs) == UI_OBJECT);
+
+    int num_objects = array_len(layout->layout_objs);
+    int current_active_pane_index = -1;
+    for (int i = 0; i < num_objects; i++) {
+        UIObject* obj = get_UIObject(layout->layout_objs, i);
+
+        if (obj->id != active_pane->id) {
+            current_active_pane_index = i;
+            break;
+        }
+    }
+
+    if (current_active_pane_index < 0)
+        return current_active_pane_index;
+
+    for (
+        int i = current_active_pane_index + 1;
+        i != current_active_pane_index;
+        i = (i + 1) % num_objects
+    ) {
+        UIObject* obj = get_UIObject(layout->layout_objs, i);
+        if (obj->componant != PANE) continue;
+
+        LOG_LOCATION();
+
+        active_pane->data.pane->is_active = false;
+        active_pane = obj;
+        active_pane->data.pane->is_active = true;
+        break;
+    }
+    return 0;
 }
 
 
@@ -143,7 +174,7 @@ int set_active_pane(UILayout* layout, int id) {
     if (obj == NULL || obj->componant != PANE) return -1;
 
     obj->data.pane->is_active = true;
-    active_pane = obj->data.pane;
+    active_pane = obj;
 
     return 0;
 }

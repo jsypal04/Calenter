@@ -10,7 +10,6 @@
 #include <unistd.h>
 
 #include "calenter.h"
-#include "array/array.h"
 #include "utils/config.h"
 #include "utils/daemon-utils.h"
 #include "utils/sync.h"
@@ -18,6 +17,7 @@
 #include "layout/layout.h"
 #include "utils/debug.h"
 #include "widgets/pane.h"
+#include "widgets/text.h"
 
 
 
@@ -26,7 +26,7 @@ void cleanup(UILayout* layout, Config config);
 
 Window* windows[NUM_WINDOWS];
 
-UIPane* active_pane = NULL;
+UIObject* active_pane = NULL;
 
 int main() {
     debug_log("\033[32mStarting UI...\033[0m\n");
@@ -44,13 +44,19 @@ int main() {
 
     UILayout* layout = new_layout(LINES, COLS, GRID);
 
-    GridParams sched_params = new_grid_params(0, 0, 2, 3);
-    GridParams cal_params   = new_grid_params(2, 0, 1, 3);
-    GridParams ctrl_params  = new_grid_params(0, 3, 3, 1);
+    GridParams sched_params = new_grid_params(0, 0, 2, 4);
+    GridParams cal_params   = new_grid_params(2, 0, 1, 4);
+    GridParams ctrl_params  = new_grid_params(0, 4, 3, 1);
 
-    UIPane* schedule_pane = new_ui_pane(layout, "Daily Schedule");
-    UIPane* calendar_pane = new_ui_pane(layout, "Calendar");
-    UIPane* controls_pane = new_ui_pane(layout, NULL);
+    UIPane* schedule_pane = new_ui_pane(layout, "Daily Schedule", STACK);
+    UIPane* calendar_pane = new_ui_pane(layout, "Calendar", STACK);
+    UIPane* controls_pane = new_ui_pane(layout, NULL, ROW);
+
+    UIText* test_text = new_ui_text("Hello, World! This is some very long text I am going to start working on text wrapping logic.", CENTER);
+    UIText* test_text_2 = new_ui_text("Goodbye, World!", LEFT);
+
+    register_ui_text(calendar_pane->layout, test_text_2, 160, NULL);
+    register_ui_text(calendar_pane->layout, test_text, 159, NULL);
 
     register_ui_pane(layout, schedule_pane, SCHEDULE_WIN, &sched_params);
     register_ui_pane(layout, calendar_pane, CALENDAR_WIN, &cal_params);
@@ -59,7 +65,7 @@ int main() {
     set_layout(layout);
     set_active_pane(layout, SCHEDULE_WIN);
 
-    render(layout);
+    render(layout, NULL);
 
     if (active_pane == NULL) {
         debug_log("Did not set active_pane before event loop, exiting...\n");
@@ -68,15 +74,18 @@ int main() {
     }
 
     while (true) {
-        ch = wgetch(active_pane->win);
+        assert(active_pane->componant == PANE);
+        ch = wgetch(active_pane->data.pane->win);
         debug_log("\033[31mkey press: '%c'\033[0m\n", ch);
 
         switch (ch) {
             case '\t': {
-                // active_win_index =
-                //     active_win_index < NUM_FOCUSABLE_WINDOWS - 1 ?
-                //     active_win_index + 1 : 0;
-                // set_active_window(&active_win, windows[active_win_index]);
+                // debug_log("active_pane id = %d\n", active_pane->id);
+                // debug_log("active_pane is_active = %d\n", active_pane->data.pane->is_active);
+                // set_next_active_pane(layout);
+                // render(layout);
+                // debug_log("active_pane id = %d\n", active_pane->id);
+                // debug_log("active_pane is_active = %d\n", active_pane->data.pane->is_active);
                 break;
             }
             case KEY_BTAB: {
@@ -93,24 +102,14 @@ int main() {
                 sync_calendar(config.remote_url);
             break;
 
-            // case KEY_RESIZE:
-            // erase();
-            // refresh();
-            // resize_layout(layout, LINES, COLS);
-
-            // werase(windows[CONTROLS_WIN]->win);
-            // resize_win(windows[CONTROLS_WIN], layout);
-
-            // werase(windows[SCHEDULE_WIN]->win);
-            // resize_win(windows[SCHEDULE_WIN], layout);
-            // render_schedule(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
-            // refresh_win(windows[SCHEDULE_WIN], active_win_index == SCHEDULE_WIN);
-
-            // werase(windows[CALENDAR_WIN]->win);
-            // resize_win(windows[CALENDAR_WIN], layout);
-            // render_calendar(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
-            // refresh_win(windows[CALENDAR_WIN], active_win_index == CALENDAR_WIN);
-            // break;
+            case KEY_RESIZE:
+            erase();
+            refresh();
+            layout->height = LINES;
+            layout->width = COLS;
+            set_layout(layout);
+            render(layout, NULL);
+            break;
 
             case ERR:
             debug_log("Received %d from wgetch\n", ch);

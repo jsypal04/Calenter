@@ -1,3 +1,10 @@
+/**
+ * widgets.c
+ *
+ * Legacy file that handles widgets for the app. Will be depricated by new
+ * layout system.
+ */
+
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>

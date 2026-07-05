@@ -5,7 +5,7 @@
 
 #include "../../common/types.h"
 
-UIPane* new_ui_pane(UILayout* parent_layout, char* title);
+UIPane* new_ui_pane(UILayout* parent_layout, char* title, LayoutType layout_type);
 
 void free_ui_pane(UIPane* pane);
 
@@ -21,5 +21,13 @@ void resize_ui_pane(UILayout* parent_layout, UIObject* object);
  * does not contain a UIPane object.
  */
 int set_active_pane(UILayout* layout, int id);
+
+/**
+ * Sets the global active_pane pointer to the next UIPane object in the
+ * layout_objs array.
+ *
+ * Returns a negative number on fail.
+ */
+int set_next_active_pane(UILayout* layout);
 
 #endif
