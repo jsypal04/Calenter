@@ -13,7 +13,7 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
-#include "types.h"
+#include "../../common/types.h"
 
 
 /*
@@ -30,18 +30,20 @@ int append_float(Array* array, float val);
 /*
  * Duplicates the string and appends it to the array.
  *
- * NOTE: This function takes ownership of the string. You may safely 
+ * NOTE: This function takes ownership of the string. You may safely
  * free it after it is appended to the array. The string elements of the
  * array will be free by the free_array function.
  * */
 int append_string(Array* array, char* val);
 
-/* Appends a BYxxx_Rule to an array of that same type. 
+/* Appends a BYxxx_Rule to an array of that same type.
  * Note: This function takes ownership of the Array* in
  * the BYxxx_Rule. It may be safely freed after calling this
  * function
  */
 int append_BYxxx_Rule(Array* array, BYxxx_Rule rule);
+
+int append_UIObject(Array* array, UIObject* layout_obj);
 
 int get_int(Array* array, int index);
 
@@ -58,6 +60,12 @@ char* get_string(Array* array, int index);
  * pointer to the Array member of the BYxxx_Rule that. No duplication.
  * */
 BYxxx_Rule get_BYxxx_Rule(Array* array, int index);
+
+UIObject* get_UIObject(Array* array, int index);
+
+// TODO: Implement the pop methods for the rest of the types
+
+UIObject* pop_UIObject(Array* array, int index);
 
 int array_len(Array* array);
 

@@ -1,11 +1,13 @@
-#include "array.h"
-#include "types.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
+#include "../../common/types.h"
+#include "../layout/layout.h"
+#include "../utils/debug.h"
 
 struct array_t {
     unsigned int length;
@@ -19,7 +21,7 @@ struct array_t {
  * */
 
 void expand_array(Array* array) {
-    union element* expanded_array = 
+    union element* expanded_array =
         malloc(sizeof(union element) * 2 * array->capacity);
 
     for (int i = 0; i < array->length; i++) {
@@ -38,17 +40,24 @@ Array* array_dup(Array* array) {
 
     for (int i = 0; i < array->length; i++) {
         switch (array->type) {
-            case INT: 
-                append_int(new_arr, get_int(array, i));
-                break;
+            case INT:
+            append_int(new_arr, get_int(array, i));
+            break;
+
             case FLOAT:
-                append_float(new_arr, get_float(array, i));
-                break;
+            append_float(new_arr, get_float(array, i));
+            break;
+
             case STRING:
-                append_string(new_arr, get_string(array, i));
-                break;
+            append_string(new_arr, get_string(array, i));
+            break;
+
             case BYXXX_RULE:
-                break;
+            break;
+
+            case UI_OBJECT:
+            append_UIObject(new_arr, get_UIObject(array, i));
+            break;
         }
     }
 
@@ -71,6 +80,8 @@ Array* new_array(unsigned int capacity, enum type type) {
 }
 
 void free_array(Array* array) {
+    LOG_FUNC("Running free_array");
+
     if (array->type == STRING) {
         for (int i = 0; i < array->length; i++) {
             free(array->array[i].s);
@@ -80,6 +91,12 @@ void free_array(Array* array) {
         for (int i = 0; i < array->length; i++) {
             free_array(array->array[i].b.values);
             array->array[i].b.values = NULL;
+        }
+    } else if (array->type == UI_OBJECT) {
+        for (int i = 0; i < array->length; i++) {
+            debug_log("i = %d\n", i);
+            free_ui_object(array->array[i].uio);
+            array->array[i].uio = NULL;
         }
     }
 
@@ -147,6 +164,20 @@ int append_BYxxx_Rule(Array* array, BYxxx_Rule rule) {
     return 0;
 }
 
+int append_UIObject(Array* array, UIObject* object) {
+    if (array->type != UI_OBJECT) return -1;
+    if (array->length == array->capacity)
+        expand_array(array);
+
+    union element elem;
+    elem.uio = object;
+
+    array->array[array->length] = elem;
+    array->length++;
+
+    return 0;
+}
+
 int get_int(Array* array, int index) {
     assert(index < array->length);
     assert(array->type == INT);
@@ -169,6 +200,30 @@ BYxxx_Rule get_BYxxx_Rule(Array* array, int index) {
     assert(index < array->length);
     assert(array->type == BYXXX_RULE);
     return array->array[index].b;
+}
+
+UIObject* get_UIObject(Array* array, int index) {
+    assert(index < array->length);
+    assert(array->type == UI_OBJECT);
+    return array->array[index].uio;
+}
+
+UIObject* pop_UIObject(Array* array, int index) {
+    assert(index < array->length);
+    assert(array->type == UI_OBJECT);
+    UIObject* value = array->array[index].uio;
+
+    if (index == array->length - 1) {
+        array->length--;
+        return value;
+    }
+
+    for (int i = index + 1; i < array->length; i++) {
+        array->array[i - 1] = array->array[i];
+    }
+
+    array->length--;
+    return value;
 }
 
 int array_len(Array* array) {
@@ -210,44 +265,59 @@ void print_array(Array* array) {
     for (int i = 0; i < array->length; i++) {
         switch (array->type) {
             case INT:
-                printf("%d ", array->array[i].i);
-                break;
+            printf("%d ", array->array[i].i);
+            break;
+
             case FLOAT:
-                printf("%f ", array->array[i].f);
-                break;
+            printf("%f ", array->array[i].f);
+            break;
+
             case STRING:
-                printf("\"%s\" ", array->array[i].s);
-                break;
+            printf("\"%s\" ", array->array[i].s);
+            break;
+
             case BYXXX_RULE:
-                switch (array->array[i].b.type) {
-                    case BYDAY:
-                        printf("BYDAY ");
-                        break;
-                    case BYHOUR:
-                        printf("BYHOUR ");
-                        break;
-                    case BYMINUTE:
-                        printf("BYMINUTE ");
-                        break;
-                    case BYMONTH:
-                        printf("BYMONTH ");
-                        break;
-                    case BYMONTHDAY:
-                        printf("BYMONTHDAY ");
-                        break;
-                    case BYSECOND:
-                        printf("BYSECOND ");
-                        break;
-                    case BYSETPOS:
-                        printf("BYSETPOS ");
-                        break;
-                    case BYWEEKNO:
-                        printf("BYWEEKNO ");
-                        break;
-                    case BYYEARDAY:
-                        printf("BYYEARDAY ");
-                        break;
-                }
+            switch (array->array[i].b.type) {
+                case BYDAY:
+                printf("BYDAY ");
+                break;
+
+                case BYHOUR:
+                printf("BYHOUR ");
+                break;
+
+                case BYMINUTE:
+                printf("BYMINUTE ");
+                break;
+
+                case BYMONTH:
+                printf("BYMONTH ");
+                break;
+
+                case BYMONTHDAY:
+                printf("BYMONTHDAY ");
+                break;
+
+                case BYSECOND:
+                printf("BYSECOND ");
+                break;
+
+                case BYSETPOS:
+                printf("BYSETPOS ");
+                break;
+
+                case BYWEEKNO:
+                printf("BYWEEKNO ");
+                break;
+
+                case BYYEARDAY:
+                printf("BYYEARDAY ");
+                break;
+            }
+
+            case UI_OBJECT:
+            printf("%d ", array->array[i].uio->id);
+            break;
         }
     }
     printf("\n");

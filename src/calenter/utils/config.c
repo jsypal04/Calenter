@@ -8,8 +8,6 @@
  * key=value
  * */
 
-#include "config.h"
-#include "../calenter.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -19,6 +17,10 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include "config.h"
+#include "debug.h"
+#include "../calenter.h"
 
 typedef struct line {
     char key[64];

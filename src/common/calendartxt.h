@@ -2,7 +2,6 @@
 #define CALENDARTXT_H
 
 #include <stddef.h>
-#include <time.h>
 #include "types.h"
 
 /*

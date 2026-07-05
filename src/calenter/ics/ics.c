@@ -6,8 +6,8 @@
  * using the functions in calendartxt.c.
  */
 
-#include "calendartxt.h"
-#include "array.h"
+#include "../../common/calendartxt.h"
+#include "../array/array.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>

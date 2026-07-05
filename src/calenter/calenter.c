@@ -1,6 +1,5 @@
 #include <asm-generic/errno-base.h>
 #include <assert.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <libnotify/notification.h>
 #include <ncurses.h>
@@ -9,136 +8,117 @@
 #include <libnotify/notify.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
 #include "calenter.h"
 #include "utils/config.h"
+#include "utils/daemon-utils.h"
 #include "utils/sync.h"
+#include "utils/ncurses-utils.h"
+#include "layout/layout.h"
+#include "utils/debug.h"
+#include "widgets/pane.h"
+#include "widgets/text.h"
 
-#define DAEMON_FIFO "/tmp/calenter-notification-daemon.fifo"
 
-void debug_log(const char* format, ...) {
-#ifdef DEBUG
-    #include <time.h>
-    #include <stdio.h>
-    #define DEBUG_LOG_FILE "/.calendar/logs/debug.log"
 
-    time_t raw_time = time(NULL);
-    struct tm* info = localtime(&raw_time);
-    char buffer[80];
-
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", info);
-
-    char log_path[1024] = "\0";
-    char* home = getenv("HOME");
-    if (home == NULL) return;
-
-    sprintf(log_path, "%s%s", home, DEBUG_LOG_FILE);
-
-    va_list args;
-    va_start(args, format);
-
-    FILE* debug_log_file = fopen(log_path, "a");
-
-    fprintf(debug_log_file, "[%s] ", buffer);
-    vfprintf(debug_log_file, format, args);
-    va_end(args);
-
-    fclose(debug_log_file);
-#endif
-}
-
-void start_notification_daemon(Config config);
 void handle_key_press(Window** active_win, int key);
+void cleanup(UILayout* layout, Config config);
 
 Window* windows[NUM_WINDOWS];
 
+UIObject* active_pane = NULL;
+
 int main() {
-    debug_log("Starting UI...\n");
+    debug_log("\033[32mStarting UI...\033[0m\n");
     notify_init("Calenter");
 
     Config config = read_config();
-    if (config.enable_notifications) {
-        start_notification_daemon(config);
-    }
-    else {
-        int fifo_fd = open(DAEMON_FIFO, O_WRONLY);
-        if (fifo_fd != -1) {
-            char buf[2] = "k";
-            write(fifo_fd, buf, 2);
-            close(fifo_fd);
-        }
-    }
 
-    Window* active_win = NULL;
-    int active_win_index = 0;
+    handle_daemon_fifo(config);
+
+    // Window* active_win = NULL;
+    // int active_win_index = 0;
     int ch;
 
-    initscr();
-    set_escdelay(25);
-    curs_set(0);
-    clear();
-    noecho();
-    cbreak();
-    start_color();
+    setup_ncurses();
 
-    init_color(DARK_GREY, 251, 251, 251);
+    UILayout* layout = new_layout(LINES, COLS, GRID);
 
-    init_pair(ACTIVE_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK);
-    init_pair(INACTIVE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
-    init_pair(INPUT_FIELD_PAIR, COLOR_WHITE, DARK_GREY);
-    init_pair(ACTIVE_INPUT_FIELD_PAIR, COLOR_WHITE, 8);
-    init_pair(CONTROLS_COLOR_PAIR, COLOR_BLUE, COLOR_BLACK);
+    GridParams sched_params = new_grid_params(0, 0, 2, 4);
+    GridParams cal_params   = new_grid_params(2, 0, 1, 4);
+    GridParams ctrl_params  = new_grid_params(0, 4, 3, 1);
 
-    // Focusable windows
-    windows[SCHEDULE_WIN] = create_win(SCHEDULE_WIN, "Daily Schedule", LINES - 4, 2 * COLS / 3 - 1, 1, 0);
-    windows[CALENDAR_WIN] = create_win(CALENDAR_WIN, "Calendar", LINES - 4, COLS / 3, 2 * COLS / 3, 0);
+    UIPane* schedule_pane = new_ui_pane(layout, "Daily Schedule", STACK);
+    UIPane* calendar_pane = new_ui_pane(layout, "Calendar", STACK);
+    UIPane* controls_pane = new_ui_pane(layout, NULL, ROW);
 
-    // Non-focusable windows
-    windows[CONTROLS_WIN] = create_win(CONTROLS_WIN, NULL, 4, COLS, 0, LINES - 4);
+    UIText* test_text = new_ui_text("Hello, World! This is some very long text I am going to start working on text wrapping logic.", CENTER);
+    UIText* test_text_2 = new_ui_text("Goodbye, World!", LEFT);
 
-    Widget calendar_widget;
-    init_calendar(&calendar_widget);
+    register_ui_text(calendar_pane->layout, test_text_2, 160, NULL);
+    register_ui_text(calendar_pane->layout, test_text, 159, NULL);
 
-    Widget schedule_widget;
-    init_schedule(&schedule_widget);
+    register_ui_pane(layout, schedule_pane, SCHEDULE_WIN, &sched_params);
+    register_ui_pane(layout, calendar_pane, CALENDAR_WIN, &cal_params);
+    register_ui_pane(layout, controls_pane, CONTROLS_WIN, &ctrl_params);
 
-    add_widget(windows[SCHEDULE_WIN], schedule_widget);
-    add_widget(windows[CALENDAR_WIN], calendar_widget);
+    set_layout(layout);
+    set_active_pane(layout, SCHEDULE_WIN);
 
-    render_schedule(windows[SCHEDULE_WIN], true);
-    render_calendar(windows[CALENDAR_WIN], false);
+    render(layout, NULL);
 
-    set_active_window(&active_win, windows[active_win_index]);
+    if (active_pane == NULL) {
+        debug_log("Did not set active_pane before event loop, exiting...\n");
+        cleanup(layout, config);
+        exit(EXIT_FAILURE);
+    }
 
     while (true) {
-        ch = wgetch(active_win->win);
+        assert(active_pane->componant == PANE);
+        ch = wgetch(active_pane->data.pane->win);
+        debug_log("\033[31mkey press: '%c'\033[0m\n", ch);
 
         switch (ch) {
             case '\t': {
-                active_win_index =
-                    active_win_index < NUM_FOCUSABLE_WINDOWS - 1 ?
-                    active_win_index + 1 : 0;
-                set_active_window(&active_win, windows[active_win_index]);
+                // debug_log("active_pane id = %d\n", active_pane->id);
+                // debug_log("active_pane is_active = %d\n", active_pane->data.pane->is_active);
+                // set_next_active_pane(layout);
+                // render(layout);
+                // debug_log("active_pane id = %d\n", active_pane->id);
+                // debug_log("active_pane is_active = %d\n", active_pane->data.pane->is_active);
                 break;
             }
             case KEY_BTAB: {
-                active_win_index =
-                    active_win_index > 0 ?
-                    active_win_index - 1 :
-                    NUM_FOCUSABLE_WINDOWS - 1;
-                set_active_window(&active_win, windows[active_win_index]);
+                // active_win_index =
+                //     active_win_index > 0 ?
+                //     active_win_index - 1 :
+                //     NUM_FOCUSABLE_WINDOWS - 1;
+                // set_active_window(&active_win, windows[active_win_index]);
                 break;
             }
+
             case 's':
-                if (config.remote_url != NULL)
-                    sync_calendar(config.remote_url);
-                break;
+            if (config.remote_url != NULL)
+                sync_calendar(config.remote_url);
+            break;
+
+            case KEY_RESIZE:
+            erase();
+            refresh();
+            layout->height = LINES;
+            layout->width = COLS;
+            set_layout(layout);
+            render(layout, NULL);
+            break;
+
             case ERR:
-                debug_log("Received %d from wgetch\n", ch);
-                free_win(windows[0]);
-                free_win(windows[1]);
-                endwin();
-                exit(1);
-            default: handle_key_press(&active_win, ch);
+            debug_log("Received %d from wgetch\n", ch);
+            // free_win(windows[0]);
+            // free_win(windows[1]);
+            cleanup(layout, config);
+            exit(EXIT_FAILURE);
+
+            // default: handle_key_press(&active_win, ch);
         };
 
         if (ch == 'q') {
@@ -146,78 +126,18 @@ int main() {
         }
     }
 
-    free_win(windows[0]);
-    free_win(windows[1]);
-    endwin();
-
-    free(config.remote_url);
-    config.remote_url = NULL;
-
-    notify_uninit();
-    return 0;
+    // free_win(windows[0]);
+    // free_win(windows[1]);
+    cleanup(layout, config);
+    return EXIT_SUCCESS;
 }
 
-void start_notification_daemon(Config config) {
-    debug_log("Starting notification daemon...\n");
-    FILE* fp = popen("pidof calenter-notification-daemon", "r");
-    char pid_buff[16];
-
-    if (fgets(pid_buff, sizeof(pid_buff), fp) != NULL) {
-        debug_log("Daemon already running\n");
-        pclose(fp);
-        return;
-    }
-
-    char proc_dir[1024] = "\0";
-    ssize_t len = readlink("/proc/self/exe", proc_dir, sizeof(proc_dir) - 1);
-    if (len == -1) {
-        debug_log("Failed to start notification daemon.\n");
-        return;
-    }
-
-    if (mkfifo(DAEMON_FIFO, 0666) < 0) {
-       if (errno != EEXIST) {
-           debug_log("Failed to create FIFO. Daemon not started.\n");
-           return;
-       }
-    }
-
-    debug_log("proc_dir: %s\n", proc_dir);
-    char noti_path[2048] = "\0";
-    strncpy(noti_path, proc_dir, 1024);
-    strcpy(noti_path + strlen(proc_dir), "-notification-daemon");
-    debug_log("noti_path: %s\n", noti_path);
-
-    int pid = fork();
-    if (pid == 0) {
-        if (setsid() < 0) exit(EXIT_FAILURE);
-        umask(0);
-        chdir("/");
-
-        freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
-
-        int retval = execl(noti_path, "calenter-notification-daemon", NULL);
-        if (retval == -1) {
-            NotifyNotification* noti = notify_notification_new(
-                "Daemon Error",
-                "Failed to start the notification daemon",
-                ""
-            );
-            notify_notification_show(noti, NULL);
-            g_object_unref(G_OBJECT(noti));
-            notify_uninit();
-            _exit(EXIT_FAILURE);
-        }
-    } else if (pid > 0) {
-        int fifo_fd = open(DAEMON_FIFO, O_WRONLY);
-        char buf[10] = "\0";
-        sprintf(buf, "t%d", config.notify_time);
-        write(fifo_fd, buf, sizeof(buf));
-        close(fifo_fd);
-
-        debug_log("started noti daemon\n");
-    }
+void cleanup(UILayout* layout, Config config) {
+    free_layout(layout);
+    endwin();
+    free(config.remote_url);
+    config.remote_url = NULL;
+    notify_uninit();
 }
 
 void handle_key_press(Window** active_win_ref, int key) {

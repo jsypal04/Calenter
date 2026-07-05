@@ -5,15 +5,6 @@
 #include <ncurses.h>
 #include "../common/calendartxt.h"
 
-#define DEBUG
-#define ACTIVE_COLOR_PAIR       1
-#define INACTIVE_COLOR_PAIR     2
-#define INPUT_FIELD_PAIR        3
-#define ACTIVE_INPUT_FIELD_PAIR 5
-#define CONTROLS_COLOR_PAIR     4
-
-#define DARK_GREY 128
-
 #define SCHEDULE_WIN 0
 #define CALENDAR_WIN 1
 #define CONTROLS_WIN 2
@@ -39,8 +30,8 @@ typedef struct _schedule_widget {
 } Schedule;
 
 enum _widget_tag {
-    CALENDAR,
-    SCHEDULE,
+    CALENDAR = 100,
+    SCHEDULE = 101,
 };
 
 union _widget_data {
@@ -54,13 +45,14 @@ typedef struct _widget {
 } Widget;
 
 typedef struct _window {
-    int id;
-    WINDOW* win;
-    char* title;
-    int width;
-    int height;
-    int num_widgets;
-    Widget* widgets;
+    int       id;
+    WINDOW*   win;
+    char*     title;
+    int       height;
+    int       width;
+    int       num_widgets;
+    Widget*   widgets;
+    UILayout* layout;
 } Window;
 
 /*
@@ -69,20 +61,18 @@ typedef struct _window {
  */
 void format_pretty_date(char* buffer, int year, int month, int day);
 
-/*
- * Function to write output to a logfile instead of the terminal
- */
-void debug_log(const char* format, ...);
-
 void add_widget(Window* window, Widget widget);
 int get_widget_index(Window* window, enum _widget_tag tag);
 
 /*
  * Creates a window. Pass a NULL title for no title
  * */
-Window* create_win(int id, char* title, int height, int width, int startx, int starty);
+Window* create_win(
+    int id, char* title, int height, int width, int startx, int starty
+);
 void free_win(Window* window);
 void refresh_win(Window* window, bool active);
+void resize_win(Window* win, UILayout* layout);
 void set_active_window(Window** active_win, Window* window);
 void refresh_controls(int win_id);
 

@@ -19,10 +19,12 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "glib-object.h"
+
+
 #include "sync.h"
-#include "../calenter.h"
+#include "debug.h"
 #include "../../common/calendartxt.h"
-#include "../../common/ics.h"
+#include "../ics/ics.h"
 
 #define SYNC_SCRIPT "fetch_calendar.bash"
 #define SYNC_SCRIPT_PATH "/.calendar/scripts/fetch_calendar.bash"

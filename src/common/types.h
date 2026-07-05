@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <stdbool.h>
+#include <ncurses.h>
 
 typedef struct array_t Array;
 
@@ -21,18 +22,82 @@ typedef struct {
     Array* values;
 } BYxxx_Rule;
 
+typedef enum ui_unit_t {
+    CELLS = 0,
+    PERCENT = 1,
+} UIUnit;
+
+typedef struct ui_layout_t UILayout;
+typedef struct ui_object_t UIObject;
+typedef struct pane_t UIPane;
+typedef struct ui_text_t UIText;
+
+typedef void (*Resizer)(UILayout*, UIObject*);
+
+typedef struct ui_float_t {
+    float value;
+    UIUnit unit;
+} UIFloat;
+
+typedef enum layouts_t {
+    ROW   = 0,
+    STACK = 1,
+    GRID  = 2,
+} LayoutType;
+
+typedef struct grid_params_t {
+    int     col;
+    int     row;
+    int colspan;
+    int rowspan;
+} GridParams;
+
+typedef struct ui_layout_t {
+    int        height;
+    int        width;
+    LayoutType layout_type;
+    Array*     layout_objs;
+} UILayout;
+
+typedef struct pane_t {
+    bool      is_active;
+    UILayout* layout;
+    WINDOW*   win;
+    char*     title;
+} UIPane;
+
+typedef struct ui_object_t {
+    int           id;
+    enum componant {
+        PANE = 0,
+        TEXT = 1,
+    }      componant;
+    GridParams grid_params;
+    UIFloat   height;
+    UIFloat    width;
+    UIFloat   startx;
+    UIFloat   starty;
+    union {
+        UIPane* pane; // This is sometimes NULL
+        UIText* text;
+    }           data;
+    Resizer   resize;
+} UIObject;
+
 enum type {
-    INT,
-    FLOAT,
-    STRING,
-    BYXXX_RULE,
+    INT           = 0,
+    FLOAT         = 1,
+    STRING        = 2,
+    BYXXX_RULE    = 3,
+    UI_OBJECT     = 4,
 };
 
 union element {
-    int i;
-    float f;
-    char* s;
-    BYxxx_Rule b;
+    int         i;
+    float       f;
+    char*       s;
+    BYxxx_Rule  b;
+    UIObject* uio;
 };
 
 
