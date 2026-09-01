@@ -3,7 +3,7 @@ APP_HOME=$(shell getent passwd $(APP_USER) | cut -d: -f6)
 
 CC = gcc
 CFLAGS = -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
-LDLIBS = -lncurses -lcurl
+LDLIBS = -lncurses -lcurl -lm
 BUILD_DIR = build
 
 LIB_SRC_FILES := $(shell find ./src/common -name "*.c" | sed 's#^\./##')

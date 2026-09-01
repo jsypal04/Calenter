@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 #include "calenter.h"
 
 #define NUM_INPUTS 7
@@ -42,7 +43,7 @@ void delete_byte(Inputs* inputs);
 void render_input_fields(WINDOW* win, Inputs* inputs);
 void init_inputs(Inputs* inputs, WINDOW* modal, int width);
 void render_freq_select_menu(WINDOW* win, Inputs* inputs, int y, int x, bool active);
-void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x);
+void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x, int lines);
 void render_input(WINDOW* win, int y, int x, bool active, char* str);
 
 char* map_freq(enum FREQ freq);
@@ -375,15 +376,20 @@ void render_input_fields(WINDOW* win, Inputs* inputs) {
         wbkgd(inputs->summary.win, COLOR_PAIR(INPUT_FIELD_PAIR));
     }
 
+    const int RRULE_LENGTH = 58;
+    // Clear the entire rrule params section (+2 for margins)
+    int lines = ceil((double)RRULE_LENGTH / width);
+    for (int l = 0; l < lines; l++) {
+        for (int i = 1; i < width; i++) {
+            mvwprintw(win, 19 + l, i, " ");
+        }
+    }
+
     mvwprintw(win, 19, 3, "Repeat");
     render_freq_select_menu(win, inputs, 19, 10, inputs->active_input == FREQ_SELECT);
 
-    for (int i = 21; i < width; i++) {
-        mvwprintw(win, 19, i, " ");
-    }
-
     if (inputs->freq_select != NONE)
-        render_rrule_params(win, inputs, 19, 21);
+        render_rrule_params(win, inputs, 19, 21, lines);
 
     box(win, 0, 0);
 
@@ -455,7 +461,10 @@ void render_freq_select_menu(WINDOW* win, Inputs* inputs, int y, int x, bool act
     }
 }
 
-void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x) {
+void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x, int lines) {
+    if (lines > 2)
+        debug_log("%d lines needed for rrule params. Not splitting accross multiple lines. Please fix.\n", lines);
+
     int offset = 0;
 
     mvwprintw(win, y, x, "every");
@@ -468,6 +477,12 @@ void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x) {
         inputs->freq_select != NONE ?
         offset + strlen(map_freq_units(inputs->freq_select)) :
         offset + 1;
+
+    if (lines == 2) {
+        y += 2;
+        offset = 0;
+    }
+
     mvwprintw(win, y, x + offset, "until");
     offset += strlen("until") + 1;
     render_input(win, y, x + offset, inputs->active_input == UNTIL,
