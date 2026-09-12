@@ -12,12 +12,9 @@ LIB_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(LIB_SRC_FILES))
 BIN_SRC_FILES := $(shell find ./src/calenter -name "*.c" | sed 's#^\./##')
 BIN_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(BIN_SRC_FILES))
 
-NOTI_SRC_FILES := $(shell find ./src/notifications -name "*.c" | sed 's#^\./##')
-NOTI_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(NOTI_SRC_FILES))
 
 LIB  = $(BUILD_DIR)/libcalenter.so
 BIN  = $(BUILD_DIR)/calenter
-NOTI = $(BUILD_DIR)/calenter-notification-daemon
 
 all: binary daemon
 
@@ -32,11 +29,6 @@ $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	    -L$(BUILD_DIR) -lcalenter -o $(BIN)
 	@echo -e "\e[32mBuilt target $(BIN)\e[0m"
 
-$(NOTI): $(LIB) $(NOTI_OBJ_FILES)
-	@echo -e "Linking C executable $(NOTI)"
-	@$(CC) $(CFLAGS) $(NOTI_OBJ_FILES) \
-	    -L$(BUILD_DIR) -lcalenter -o $(NOTI)
-	@echo -e "\e[32mBuilt target $(NOTI)\e[0m"
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
@@ -50,16 +42,15 @@ library: $(LIB)
 
 binary: $(BIN)
 
-daemon: $(NOTI)
 
-run: $(BIN) $(NOTI)
+run: $(BIN)
 	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
 	./$(BIN)
 
 clean:
 	rm -rf $(BUILD_DIR)/*
 
-install: $(BIN) $(NOTI)
+install: $(BIN)
 	mkdir -p $(APP_HOME)/.calendar
 
 	cp $(LIB) /usr/lib
@@ -68,7 +59,6 @@ install: $(BIN) $(NOTI)
 	curl https://terokarvinen.com/2021/calendar-txt/calendar-txt-until-2033.txt > $(APP_HOME)/.calendar/calendar.txt
 
 	cp $(BIN) $(APP_HOME)/.local/bin
-	cp $(NOTI) $(APP_HOME)/.local/bin
 
 	cp -r scripts $(APP_HOME)/.calendar
 

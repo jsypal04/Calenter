@@ -23,7 +23,7 @@ void error(const char* msg);
 void* worker(void* args);
 void  listener();
 
-int main() {
+int notification_daemon_main() {
     notify_init("Calenter");
     pthread_t worker_thread;
     int retval;

@@ -113,4 +113,9 @@ bool verify_date(char* date);
 
 char* stringify_datetime(struct tm dt, size_t* len);
 
+/*
+ * Notificatin Daemon functions
+ * */
+int notification_daemon_main();
+
 #endif

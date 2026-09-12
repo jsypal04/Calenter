@@ -3,11 +3,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libnotify/notification.h>
+#include <linux/prctl.h>
 #include <ncurses.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <libnotify/notify.h>
 #include <sys/stat.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 #include "calenter.h"
 #include "utils/config.h"
@@ -159,19 +161,18 @@ int main() {
 
 void start_notification_daemon(Config config) {
     debug_log("Starting notification daemon...\n");
-    FILE* fp = popen("pidof calenter-notification-daemon", "r");
-    char pid_buff[16];
+    FILE* fp = popen("pidof calenter", "r");
+    char pid_buff[128] = "\0";
 
-    if (fgets(pid_buff, sizeof(pid_buff), fp) != NULL) {
+    char* pids = fgets(pid_buff, sizeof(pid_buff), fp);
+    pid_buff[127] = '\0';
+
+    int index = 0;
+    while (pids[index] != ' ' && pids[index] != '\0') index++;
+
+    if (pids[index] == ' ') {
         debug_log("Daemon already running\n");
         pclose(fp);
-        return;
-    }
-
-    char proc_dir[1024] = "\0";
-    ssize_t len = readlink("/proc/self/exe", proc_dir, sizeof(proc_dir) - 1);
-    if (len == -1) {
-        debug_log("Failed to start notification daemon.\n");
         return;
     }
 
@@ -182,12 +183,6 @@ void start_notification_daemon(Config config) {
        }
     }
 
-    debug_log("proc_dir: %s\n", proc_dir);
-    char noti_path[2048] = "\0";
-    strncpy(noti_path, proc_dir, 1024);
-    strcpy(noti_path + strlen(proc_dir), "-notification-daemon");
-    debug_log("noti_path: %s\n", noti_path);
-
     int pid = fork();
     if (pid == 0) {
         if (setsid() < 0) exit(EXIT_FAILURE);
@@ -197,7 +192,9 @@ void start_notification_daemon(Config config) {
         freopen("/dev/null", "w", stdout);
         freopen("/dev/null", "w", stderr);
 
-        int retval = execl(noti_path, "calenter-notification-daemon", NULL);
+        prctl(PR_SET_NAME, "calenterd", 0, 0, 0);
+
+        int retval = notification_daemon_main();
         if (retval == -1) {
             NotifyNotification* noti = notify_notification_new(
                 "Daemon Error",
@@ -208,6 +205,9 @@ void start_notification_daemon(Config config) {
             g_object_unref(G_OBJECT(noti));
             notify_uninit();
             _exit(EXIT_FAILURE);
+        } else {
+            notify_uninit();
+            _exit(EXIT_SUCCESS);
         }
     } else if (pid > 0) {
         int fifo_fd = open(DAEMON_FIFO, O_WRONLY);
