@@ -7,6 +7,7 @@
 #include <math.h>
 #include "calenter.h"
 
+#define MODAL_WIDTH_BREAKPOINT 85
 #define NUM_INPUTS 7
 
 enum input_tag {
@@ -53,6 +54,13 @@ int height, width;
 struct event add_event_modal(Window** windows, struct event* event) {
     height = 3 * LINES / 4;
     width = COLS / 2;
+
+    if (width < MODAL_WIDTH_BREAKPOINT) {
+        width = COLS - 2;
+    }
+
+    debug_log("height = %d\nLINES = %d\n", height, LINES);
+    debug_log("width = %d\nCOLS = %d\n", width, COLS);
 
     WINDOW* modal = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
     keypad(modal, true);
@@ -379,7 +387,7 @@ void render_input_fields(WINDOW* win, Inputs* inputs) {
     const int RRULE_LENGTH = 58;
     // Clear the entire rrule params section (+2 for margins)
     int lines = ceil((double)RRULE_LENGTH / width);
-    for (int l = 0; l < lines; l++) {
+    for (int l = 0; l < lines * 2; l += 2) {
         for (int i = 1; i < width; i++) {
             mvwprintw(win, 19 + l, i, " ");
         }
