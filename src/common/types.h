@@ -31,6 +31,7 @@ typedef struct ui_layout_t UILayout;
 typedef struct ui_object_t UIObject;
 typedef struct pane_t UIPane;
 typedef struct ui_text_t UIText;
+typedef struct _calendar_widget Calendar;
 
 typedef void (*Resizer)(UILayout*, UIObject*);
 
@@ -69,8 +70,9 @@ typedef struct pane_t {
 typedef struct ui_object_t {
     int           id;
     enum componant {
-        PANE = 0,
-        TEXT = 1,
+        UI_PANE     = 0,
+        UI_TEXT     = 1,
+        UI_CALENDAR = 2,
     }      componant;
     GridParams grid_params;
     UIFloat   height;
@@ -80,6 +82,7 @@ typedef struct ui_object_t {
     union {
         UIPane* pane; // This is sometimes NULL
         UIText* text;
+        Calendar* calendar;
     }           data;
     Resizer   resize;
 } UIObject;

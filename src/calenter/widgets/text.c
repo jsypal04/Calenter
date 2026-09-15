@@ -42,7 +42,7 @@ void resize_ui_text(UILayout* parent_layout, UIObject* obj) {
 
 void render_ui_text(UIPane* pane, UIObject* object) {
     LOG_FUNC("Running render_ui_text");
-    assert(object->componant == TEXT);
+    assert(object->componant == UI_TEXT);
     assert(object->data.text != NULL);
 
     UIText* text = object->data.text;

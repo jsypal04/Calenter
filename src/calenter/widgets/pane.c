@@ -51,7 +51,7 @@ void free_ui_pane(UIPane *pane) {
 void render_ui_pane(UIObject *object) {
     LOG_FUNC("Running render_ui_pane");
 
-    assert(object->componant == PANE);
+    assert(object->componant == UI_PANE);
     assert(object->data.pane->layout != NULL);
     assert(object->data.pane->layout->layout_objs != NULL);
     assert(array_type(object->data.pane->layout->layout_objs) == UI_OBJECT);
@@ -88,7 +88,7 @@ void render_ui_pane(UIObject *object) {
 void resize_ui_pane(UILayout* parent_layout, UIObject* object) {
     LOG_FUNC("Running resize_ui_pane");
 
-    assert(object->componant == PANE);
+    assert(object->componant == UI_PANE);
     assert(object->data.pane != NULL);
     assert(object->data.pane->layout != NULL);
 
@@ -145,7 +145,7 @@ int set_next_active_pane(UILayout* layout) {
         i = (i + 1) % num_objects
     ) {
         UIObject* obj = get_UIObject(layout->layout_objs, i);
-        if (obj->componant != PANE) continue;
+        if (obj->componant != UI_PANE) continue;
 
         LOG_LOCATION();
 
@@ -171,7 +171,7 @@ int set_active_pane(UILayout* layout, int id) {
         obj = NULL;
     }
 
-    if (obj == NULL || obj->componant != PANE) return -1;
+    if (obj == NULL || obj->componant != UI_PANE) return -1;
 
     obj->data.pane->is_active = true;
     active_pane = obj;

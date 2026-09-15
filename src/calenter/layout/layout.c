@@ -50,11 +50,11 @@ void render(UILayout* layout, UIPane* pane) {
     for (int i = 0; i < num_objects; i++) {
         UIObject* object = get_UIObject(layout->layout_objs, i);
         switch (object->componant) {
-            case PANE:
+            case UI_PANE:
             render_ui_pane(object);
             break;
 
-            case TEXT:
+            case UI_TEXT:
             render_ui_text(pane, object);
             break;
         }
@@ -85,12 +85,12 @@ void free_ui_object(UIObject* object) {
 
     debug_log("object->data.pane = %x\n");
     switch (object->componant) {
-        case PANE:
+        case UI_PANE:
         if (object->data.pane != NULL)
             free_ui_pane(object->data.pane);
         break;
 
-        case TEXT:
+        case UI_TEXT:
         if (object->data.text != NULL)
             free_ui_text(object->data.text);
         break;
@@ -132,7 +132,7 @@ void register_ui_pane(UILayout* layout, UIPane* pane, int id, GridParams* params
 
     UIObject* object = new_ui_object(id, params);
 
-    object->componant = PANE;
+    object->componant = UI_PANE;
     object->data.pane = pane;
 
     object->resize = resize_ui_pane;
@@ -149,7 +149,7 @@ void register_ui_text(UILayout* layout, UIText* text, int id, GridParams* params
 
     UIObject* object = new_ui_object(id, params);
 
-    object->componant = TEXT;
+    object->componant = UI_TEXT;
     object->data.text = text;
 
     object->resize = resize_ui_text;
@@ -326,7 +326,7 @@ void set_layout(UILayout* layout) {
     int num_objects = array_len(layout->layout_objs);
     for (int i = 0; i < num_objects; i++) {
         UIObject* obj = get_UIObject(layout->layout_objs, i);
-        if (obj->componant == PANE && obj->data.pane != NULL) {
+        if (obj->componant == UI_PANE && obj->data.pane != NULL) {
             UIPane* pane = obj->data.pane;
             set_layout(pane->layout);
         }

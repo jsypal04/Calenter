@@ -74,7 +74,7 @@ int main() {
     }
 
     while (true) {
-        assert(active_pane->componant == PANE);
+        assert(active_pane->componant == UI_PANE);
         ch = wgetch(active_pane->data.pane->win);
         debug_log("\033[31mkey press: '%c'\033[0m\n", ch);
 

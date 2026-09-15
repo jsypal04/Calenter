@@ -15,7 +15,7 @@
 
 #define CTRL(x) ((x) & 0x1f)
 
-typedef struct _calender_widget {
+typedef struct _calendar_widget {
     int selected_day;
     int month;
     int year;
