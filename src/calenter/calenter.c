@@ -131,8 +131,17 @@ int main() {
                 break;
             }
             case 's':
-                if (config.remote_url != NULL)
-                    sync_calendar(config.remote_url);
+                if (config.remote_url != NULL) {
+                    sync_calendar_wrapper(config.remote_url);
+                } else {
+                    NotifyNotification* noti = notify_notification_new(
+                        "Calenter",
+                        "Failed to Sync. No remote URL found.",
+                        ""
+                    );
+                    notify_notification_show(noti, NULL);
+                    g_object_unref(G_OBJECT(noti));
+                }
                 break;
             case ERR:
                 debug_log("Received %d from wgetch\n", ch);
