@@ -276,7 +276,7 @@ void set_byte(Inputs* inputs, char ch) {
         break;
 
     case SUMMARY:
-        if (inputs->summary.index >= 1999) return;
+        if (inputs->summary.index >= 1999 || ch == ',') return;
 
         inputs->summary.content[inputs->summary.index] = ch;
         inputs->summary.index++;
