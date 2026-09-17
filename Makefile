@@ -16,7 +16,7 @@ BIN_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(BIN_SRC_FILES))
 LIB  = $(BUILD_DIR)/libcalenter.so
 BIN  = $(BUILD_DIR)/calenter
 
-all: binary daemon
+all: binary
 
 $(LIB): $(LIB_OBJ_FILES)
 	@echo -e "Linking C shared library $(LIB)"
@@ -50,17 +50,28 @@ run: $(BIN)
 clean:
 	rm -rf $(BUILD_DIR)/*
 
+.ONESHELL:
 install: $(BIN)
-	mkdir -p $(APP_HOME)/.calendar
+	@mkdir -p $(APP_HOME)/.calendar
 
+	echo "Installing shared object to /usr/lib"
 	cp $(LIB) /usr/lib
 	ldconfig
 
-	curl https://terokarvinen.com/2021/calendar-txt/calendar-txt-until-2033.txt > $(APP_HOME)/.calendar/calendar.txt
+	if [ -f "$(APP_HOME)/.calendar/calendar.txt" ]; then
+		echo "$(APP_HOME)/.calendar/calendar.txt already exists. Using it."
+	else
+		echo "$(APP_HOME)/.calendar/calendar.txt not found. Downloading a template."
+		curl https://terokarvinen.com/2021/calendar-txt/calendar-txt-until-2033.txt > $(APP_HOME)/.calendar/calendar.txt
+	fi
 
+	echo "Installing binary to $(APP_HOME)/.local/bin"
 	cp $(BIN) $(APP_HOME)/.local/bin
-
+	echo "Installing python scripts to $(APP_HOME)/.calendar/scripts"
 	cp -r scripts $(APP_HOME)/.calendar
 
+	if ! command -v python3 >/dev/null 2>&1; then
+		echo "Python 3 is not installed. You must install Python 3 to run sync calendar.txt with your Google Calendar."
+	fi   
 
 .PHONY: all library binary daemon run clean install

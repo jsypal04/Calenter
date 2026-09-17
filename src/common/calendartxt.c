@@ -191,6 +191,21 @@ int write_events(struct events events, int year, int month, int day) {
     do {
         read = getline(&line, &len, calendar_file);
         if (strstr(line, search_str) != NULL) {
+
+            char* line_copy = strdup(line);
+            trim(line_copy);
+
+            if (strlen(line_copy) < 18) {
+                fprintf(tmp, "%s", line);
+                free(line_copy);
+                line_copy = NULL;
+                continue;
+            }
+
+            free(line_copy);
+            line_copy = NULL;
+
+
             char header[30] = "\0";
             for (int i = 0; i < 18; i++) {
                 header[i] = line[i];

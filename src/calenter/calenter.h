@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <ncurses.h>
-#include "../common/calendartxt.h"
+#include "../common/types.h"
 
 #define DEBUG
 #define ACTIVE_COLOR_PAIR       1
@@ -103,11 +103,6 @@ int get_days_in_month(int month);
 struct tm get_day_info(int year, int month, int day);
 
 struct event add_event_modal(Window** windows, struct event* event);
-
-/*
- * Removes leading and trailing whitespace
- * */
-void trim(char* str);
 
 bool verify_date(char* date);
 

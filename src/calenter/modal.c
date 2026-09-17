@@ -5,7 +5,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+
 #include "calenter.h"
+#include "../common/calendartxt.h"
 
 #define MODAL_WIDTH_BREAKPOINT 85
 #define NUM_INPUTS 7
@@ -58,9 +60,6 @@ struct event add_event_modal(Window** windows, struct event* event) {
     if (width < MODAL_WIDTH_BREAKPOINT) {
         width = COLS - 2;
     }
-
-    debug_log("height = %d\nLINES = %d\n", height, LINES);
-    debug_log("width = %d\nCOLS = %d\n", width, COLS);
 
     WINDOW* modal = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
     keypad(modal, true);

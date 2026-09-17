@@ -2,7 +2,6 @@
 #define CALENDARTXT_H
 
 #include <stddef.h>
-#include <time.h>
 #include "types.h"
 
 /*
@@ -84,5 +83,13 @@ void format_calendartxt_date(char* buffer, int year, int month, int day);
  * Note: `buffer` should be at least 7 characters long.
  */
 void format_time(char* buffer, int hour, int min);
+
+
+/**
+ * Utility functions
+ * */
+
+// Removes leading and trailing whitespace in place.
+void trim(char* str);
 
 #endif
