@@ -69,11 +69,6 @@ typedef struct _window {
  */
 void format_pretty_date(char* buffer, int year, int month, int day);
 
-/*
- * Function to write output to a logfile instead of the terminal
- */
-void debug_log(const char* format, ...);
-
 void add_widget(Window* window, Widget widget);
 int get_widget_index(Window* window, enum _widget_tag tag);
 

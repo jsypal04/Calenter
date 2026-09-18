@@ -32,8 +32,6 @@ int BYxxx_Table[9][7] = {
     {NA, LIMIT, LIMIT, LIMIT, LIMIT, LIMIT, LIMIT}
 };
 
-void debug_log(const char *format, ...);
-
 /*
  * Parses the string event from calendar.txt into a `struct event`
  * This function allocates memory for the event.

@@ -19,10 +19,13 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "glib-object.h"
+
 #include "sync.h"
-#include "../calenter.h"
-#include "../../common/calendartxt.h"
-#include "../../common/ics.h"
+#include "calendartxt.h"
+#include "ics.h"
+#include "array.h"
+#include "debug.h"
+
 
 #define SYNC_SCRIPT "fetch_calendar.bash"
 #define SYNC_SCRIPT_PATH "/.calendar/scripts/fetch_calendar.bash"
@@ -62,9 +65,13 @@ int sync_calendar(char* remote_url) {
     return SCRIPT_FAILED;
 }
 
-void sync_calendar_wrapper(char* remote_url) {
-    pthread_t syncer_thread;
-    pthread_create(&syncer_thread, NULL, sync_calendar_curl, remote_url);
+void sync_calendar_wrapper(Array* remote_urls) {
+    int num_urls = array_len(remote_urls);
+    for (int i = 0; i < num_urls; i++) {
+        pthread_t syncer_thread;
+        char* remote_url = get_string(remote_urls, i);
+        pthread_create(&syncer_thread, NULL, sync_calendar_curl, remote_url);
+    }
 }
 
 void* sync_calendar_curl(void* ptr) {

@@ -15,8 +15,26 @@ BIN_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(BIN_SRC_FILES))
 
 LIB  = $(BUILD_DIR)/libcalenter.so
 BIN  = $(BUILD_DIR)/calenter
+HEADLESS = $(BUILD_DIR)/calenter-headless
 
-all: binary
+all: $(BIN) $(LIB) $(HEADLESS)
+
+library: $(LIB)
+
+binary: $(BIN)
+
+headless: $(HEADLESS)
+
+run: $(BIN)
+	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
+	./$(BIN)
+
+run-headless: $(HEADLESS)
+	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
+	./$(BUILD_DIR)/calenter-headless
+
+clean:
+	rm -rf $(BUILD_DIR)/*
 
 $(LIB): $(LIB_OBJ_FILES)
 	@echo -e "Linking C shared library $(LIB)"
@@ -29,26 +47,25 @@ $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	    -L$(BUILD_DIR) -lcalenter -o $(BIN)
 	@echo -e "\e[32mBuilt target $(BIN)\e[0m"
 
-
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+$(BUILD_DIR)/src/calenter/%.o: src/calenter/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
+	@echo -e "Compiling C object $@"
+
+$(BUILD_DIR)/src/common/%.o: src/common/%.c | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) -fPIC -c $< -o $@
 	@echo -e "Compiling C object $@"
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
-library: $(LIB)
-
-binary: $(BIN)
-
-
-run: $(BIN)
-	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
-	./$(BIN)
-
-clean:
-	rm -rf $(BUILD_DIR)/*
+$(HEADLESS): $(LIB)
+	@mkdir -p $(BUILD_DIR)/src/headless
+	@echo -e "Compiling and Linking C executable $(HEADLESS)"
+	@$(CC) $(CFLAGS) $(LDLIBS) src/headless/calenter-headless.c \
+	    -L$(BUILD_DIR) -lcalenter -o $(HEADLESS)
+	@echo -e "\e[32mBuilt target $(HEADLESS)\e[0m"
 
 .ONESHELL:
 install: $(BIN)
@@ -74,4 +91,4 @@ install: $(BIN)
 		echo "Python 3 is not installed. You must install Python 3 to run sync calendar.txt with your Google Calendar."
 	fi   
 
-.PHONY: all library binary daemon run clean install
+.PHONY: all library binary run clean install headless run-headless

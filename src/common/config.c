@@ -8,8 +8,6 @@
  * key=value
  * */
 
-#include "config.h"
-#include "../calenter.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -20,18 +18,23 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "config.h"
+#include "calendartxt.h"
+#include "array.h"
+#include "debug.h"
+
+
 typedef struct line {
     char key[64];
     char* value;
 } ConfigLine;
 
-int retval;
-
-ConfigLine parse_next_config_line(FILE* config_file);
+ConfigLine parse_next_config_line(FILE* config_file, int* retval);
 bool contains(const char** keys, char* key);
 
 Config read_config() {
     Config config = {0};
+    config.remote_urls = new_array(5, STRING);
 
     char* home = getenv("HOME");
     char* config_path = malloc(sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
@@ -45,11 +48,13 @@ Config read_config() {
 
     ConfigLine line;
 
-    line = parse_next_config_line(config_file);
+    int retval;
+    line = parse_next_config_line(config_file, &retval);
     while (retval != EOF) {
         if (strcmp(line.key, "remote_url") == 0) {
-            config.remote_url = strdup(line.value);
-            debug_log("remote_url: %s\n", config.remote_url);
+            char* url = strdup(line.value);
+            append_string(config.remote_urls, url);
+            debug_log("remote_url: %s\n", url);
         } else if (strcmp(line.key, "enable_notifications") == 0) {
             if (
                 strcmp(line.value, "true") == 0 ||
@@ -72,7 +77,7 @@ Config read_config() {
         free(line.value);
         line.value = NULL;
 
-        line = parse_next_config_line(config_file);
+        line = parse_next_config_line(config_file, &retval);
     }
 
     if (config.enable_notifications && config.notify_time == 0) {
@@ -84,7 +89,7 @@ Config read_config() {
     return config;
 }
 
-ConfigLine parse_next_config_line(FILE* config_file) {
+ConfigLine parse_next_config_line(FILE* config_file, int* retval) {
     ConfigLine config_line = {0};
     char* line = NULL;
     size_t len = 0;
@@ -92,7 +97,7 @@ ConfigLine parse_next_config_line(FILE* config_file) {
 
     read = getline(&line, &len, config_file);
     if (read <= 0) {
-        retval = EOF;
+        *retval = EOF;
         free(line);
         line = NULL;
         return config_line;
@@ -100,7 +105,7 @@ ConfigLine parse_next_config_line(FILE* config_file) {
 
     char* eq_ptr = strstr(line, "=");
     if (eq_ptr == NULL) {
-        retval = 1;
+        *retval = 1;
         free(line);
         line = NULL;
         return config_line;
@@ -115,6 +120,6 @@ ConfigLine parse_next_config_line(FILE* config_file) {
     config_line.value = strdup(eq_ptr + 1);
     trim(config_line.value);
 
-    retval = 0;
+    *retval = 0;
     return config_line;
 }

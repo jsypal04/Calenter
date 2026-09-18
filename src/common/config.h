@@ -3,12 +3,14 @@
 
 #include <stdbool.h>
 
+#include "types.h"
+
 #define CONFIG_DIR "/.config/calenter/"
 #define CONFIG_FILE "config"
 
 
 typedef struct _config {
-    char* remote_url;
+    Array* remote_urls;
     bool enable_notifications;
     int  notify_time;
 } Config;

@@ -5,48 +5,21 @@
 #include <libnotify/notification.h>
 #include <linux/prctl.h>
 #include <ncurses.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <libnotify/notify.h>
 #include <sys/stat.h>
 #include <sys/prctl.h>
 #include <unistd.h>
+
 #include "calenter.h"
-#include "utils/config.h"
-#include "utils/sync.h"
+#include "../common/config.h"
+#include "../common/sync.h"
+#include "../common/calendartxt.h"
+#include "../common/array.h"
+#include "../common/debug.h"
 
 #define DAEMON_FIFO "/tmp/calenter-notification-daemon.fifo"
 
-void debug_log(const char* format, ...) {
-#ifdef DEBUG
-    #include <time.h>
-    #include <stdio.h>
-    #define DEBUG_LOG_FILE "/.calendar/logs/debug.log"
-
-    time_t raw_time = time(NULL);
-    struct tm* info = localtime(&raw_time);
-    char buffer[80];
-
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", info);
-
-    char log_path[1024] = "\0";
-    char* home = getenv("HOME");
-    if (home == NULL) return;
-
-    sprintf(log_path, "%s%s", home, DEBUG_LOG_FILE);
-
-    va_list args;
-    va_start(args, format);
-
-    FILE* debug_log_file = fopen(log_path, "a");
-
-    fprintf(debug_log_file, "[%s] ", buffer);
-    vfprintf(debug_log_file, format, args);
-    va_end(args);
-
-    fclose(debug_log_file);
-#endif
-}
 
 void start_notification_daemon(Config config);
 void handle_key_press(Window** active_win, int key);
@@ -131,12 +104,14 @@ int main() {
                 break;
             }
             case 's':
-                if (config.remote_url != NULL) {
-                    sync_calendar_wrapper(config.remote_url);
+                if (config.remote_urls != NULL && 
+                    array_len(config.remote_urls) > 0
+                ) {
+                    sync_calendar_wrapper(config.remote_urls);
                 } else {
                     NotifyNotification* noti = notify_notification_new(
                         "Calenter",
-                        "Failed to Sync. No remote URL found.",
+                        "Unable to Sync. No remote URLs found.",
                         ""
                     );
                     notify_notification_show(noti, NULL);
@@ -161,8 +136,7 @@ int main() {
     free_win(windows[1]);
     endwin();
 
-    free(config.remote_url);
-    config.remote_url = NULL;
+    free_array(config.remote_urls);
 
     notify_uninit();
     return 0;

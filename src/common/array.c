@@ -250,5 +250,4 @@ void print_array(Array* array) {
                 }
         }
     }
-    printf("\n");
 }

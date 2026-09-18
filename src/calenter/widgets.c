@@ -2,7 +2,10 @@
 #include <assert.h>
 #include <time.h>
 #include <string.h>
+
 #include "calenter.h"
+#include "../common/calendartxt.h"
+#include "../common/debug.h"
 
 
 void add_widget(Window* window, Widget widget) {
