@@ -12,8 +12,9 @@ make
 ```
 
 This command produces three artifacts: `build/calenter`, `build/calenter-headless`,
-and `libcalenter.so`. The first artifact is the app binary. The seconds artifact is a headless version of the app that includes the code that is not directly UI 
-related (this is for debugging). The third artifact is a shared library containing the shared code between the two executables.
+and `build/libcalenter.so`. The first artifact is the app binary. The seconds artifact is a headless version of the app that is basically an entrypoint for 
+libcalenter (for debugging purposes). The third artifact is a shared library containing the backend code (e.g., reading/writing to calendar.txt,
+parsing ics files, a custom array type, etc.).
 
 To run the app without installing it use the following command.
 ```bash
@@ -21,7 +22,7 @@ make run
 ```
 This sets the library paths properly before starting the app which prevents missing library issues.
 
-## Config File
+## Configuration
 
 You may create a config file at `~/.config/calenter/config`. It uses the
 following basic syntax:
