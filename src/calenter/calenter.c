@@ -136,7 +136,8 @@ int main() {
     free_win(windows[1]);
     endwin();
 
-    free_array(config.remote_urls);
+    if (config.remote_urls != NULL)
+        free_array(config.remote_urls);
 
     notify_uninit();
     return 0;

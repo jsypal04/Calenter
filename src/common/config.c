@@ -2,10 +2,10 @@
  * config.c
  *
  * This file provides a function for reading a config file
- * into a config type. The config file is located at ~/.config/calenter/config.
+ * into a config type. The config file is located at ~/.config/calenter/config[.ini].
  * It uses the following basic syntax:
  *
- * key=value
+ * key = value
  * */
 
 #include <assert.h>
@@ -29,17 +29,17 @@ typedef struct line {
     char* value;
 } ConfigLine;
 
+char* get_config_path();
 ConfigLine parse_next_config_line(FILE* config_file, int* retval);
 bool contains(const char** keys, char* key);
 
 Config read_config() {
     Config config = {0};
-    config.remote_urls = new_array(5, STRING);
 
-    char* home = getenv("HOME");
-    char* config_path = malloc(sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
-    memset(config_path, '\0', sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
-    sprintf(config_path, "%s%s%s", home, CONFIG_DIR, CONFIG_FILE);
+    char* config_path = get_config_path();
+    if (config_path == NULL) return config;
+
+    config.remote_urls = new_array(5, STRING);
 
     FILE* config_file = fopen(config_path, "r");
     if (!config_file) return config;
@@ -122,4 +122,16 @@ ConfigLine parse_next_config_line(FILE* config_file, int* retval) {
 
     *retval = 0;
     return config_line;
+}
+
+char* get_config_path() {
+    char* home = getenv("HOME");
+
+    if (home == NULL) return NULL;
+
+    char* config_path = malloc(sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
+    memset(config_path, '\0', sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
+    sprintf(config_path, "%s%s%s", home, CONFIG_DIR, CONFIG_FILE);
+
+    return config_path;
 }

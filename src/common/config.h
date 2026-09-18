@@ -7,6 +7,7 @@
 
 #define CONFIG_DIR "/.config/calenter/"
 #define CONFIG_FILE "config"
+#define INI_CONFIG_FILE "config.ini"
 
 
 typedef struct _config {
