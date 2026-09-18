@@ -11,10 +11,9 @@ git clone https://github.com/jsypal04/Calenter.git
 make
 ```
 
-This command produces three artifacts: `build/calenter`, `build/calenter-notification-daemon`,
-and `libcalenter.so`. The first artifact is the app binary. The seconds artifact is the daemon process that sends
-notifications when the event gets close enough (configurable, see below). The third artifact is a shared library
-containing the code shared between the two executables.
+This command produces three artifacts: `build/calenter`, `build/calenter-headless`,
+and `libcalenter.so`. The first artifact is the app binary. The seconds artifact is a headless version of the app that includes the code that is not directly UI 
+related (this is for debugging). The third artifact is a shared library containing the shared code between the two executables.
 
 To run the app without installing it use the following command.
 ```bash
@@ -27,16 +26,16 @@ This sets the library paths properly before starting the app which prevents miss
 You may create a config file at `~/.config/calenter/config`. It uses the
 following basic syntax:
 ```
-key=value
+key = value
 ```
 
 Currently, there are only options to add a remote calendar and to configure notification settings.
 An example config is included below.
 
 ```
-remote_url=<your gcal url>
-enable_notifications=true
-notify_time=10
+remote_url = <your gcal url>
+enable_notifications = true
+notify_time = 10
 ```
 Notes on config options:
 - `remote_url` should be a permalink to a .ics file
@@ -59,7 +58,7 @@ This is a list of features I want to add.
 - [x] Ability to add all day events
 - [ ] Repeat rules
     - [x] Store event date-time data as a `struct tm`
-    - [ ] Enable creating events with repeat rules.
+    - [x] Enable creating events with repeat rules.
     - [ ] Write algorithm to process BYxxx rules
 - [ ] Multi-day all day events
 - [x] Native ics parser
