@@ -9,6 +9,14 @@
  */
 struct events get_events(int year, int month, int day);
 
+/**
+ * Gets an array of all the events for a given day, stringified, from
+ * calendar.txt
+ *
+ * NOTE: you must free the array and every string in the array.
+ * */
+char** get_events_str(int year, int month, int day, int* num_events);
+
 /*
  * Writes the event to calendar.txt. Returns 0 on success, -1 on failure.
  */

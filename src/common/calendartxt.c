@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <time.h>
 #include "calendartxt.h"
+#include "types.h"
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
 
@@ -100,6 +101,42 @@ struct events get_events(int year, int month, int day) {
     trimmed_line = NULL;
 
     return events;
+}
+
+char** get_events_str(int year, int month, int day, int* num_events) {
+    struct events events = get_events(year, month, day);
+
+    *num_events = events.length;
+    char** str_events = malloc(sizeof(char*) * events.length);
+
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+        char time_str[20] = "\0";
+
+        if (event.all_day) {
+            sprintf(time_str, "ALL DAY"); 
+        } else {
+            char suffix[4] = "\0";
+            if (event.datetime.tm_hour < 12) {
+                strcpy(suffix, " AM");
+            } else {
+                strcpy(suffix, " PM");
+            }
+
+            int hour = event.datetime.tm_hour % 12;
+            if (hour == 0) hour = 12;
+            
+            format_time(time_str, hour, event.datetime.tm_min);
+            if (hour != -1) strcpy(time_str + 5, suffix);
+        }
+
+        int mem = 15 + strlen(event.summary);
+        char* str_event = malloc(sizeof(char) * mem);
+
+        sprintf(str_event, "%s - %s", time_str, event.summary);
+        str_events[i] = str_event;
+    }
+    return str_events;
 }
 
 struct event parse_event(char* raw_event) {

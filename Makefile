@@ -1,9 +1,13 @@
 APP_USER=$(shell stat -c '%U' .)
 APP_HOME=$(shell getent passwd $(APP_USER) | cut -d: -f6)
 
+MAJOR = 0
+MINOR = 3
+PATCH = 1
+
 CC = gcc
-CFLAGS = -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
-LDLIBS = -lncurses -lcurl -lm
+CFLAGS = -g -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
+LDLIBS = -lncurses -lcurl -lm -pthread
 BUILD_DIR = build
 
 LIB_SRC_FILES := $(shell find ./src/common -name "*.c" | sed 's#^\./##')
@@ -12,8 +16,11 @@ LIB_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(LIB_SRC_FILES))
 BIN_SRC_FILES := $(shell find ./src/calenter -name "*.c" | sed 's#^\./##')
 BIN_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(BIN_SRC_FILES))
 
+LIB_NAME      = libcalenter.so
+LIB_REAL_NAME = $(LIB_NAME).$(MAJOR).$(MINOR).$(PATCH)
+SONAME        = $(LIB_NAME).$(MAJOR)
 
-LIB  = $(BUILD_DIR)/libcalenter.so
+LIB  = $(BUILD_DIR)/$(LIB_REAL_NAME)
 BIN  = $(BUILD_DIR)/calenter
 HEADLESS = $(BUILD_DIR)/calenter-headless
 
@@ -29,6 +36,10 @@ run: $(BIN)
 	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
 	./$(BIN)
 
+run-headless-gdb: $(HEADLESS)
+	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
+	gdb $(BUILD_DIR)/calenter-headless
+
 run-headless: $(HEADLESS)
 	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
 	./$(BUILD_DIR)/calenter-headless
@@ -40,6 +51,8 @@ $(LIB): $(LIB_OBJ_FILES)
 	@echo -e "Linking C shared library $(LIB)"
 	@$(CC) $(CFLAGS) -shared -fPIC $(LIB_OBJ_FILES) -o $(LIB)
 	@echo -e "\e[32mBuilt target $(LIB)\e[0m"
+	@ln -sf $(LIB_REAL_NAME) $(BUILD_DIR)/$(SONAME)
+	@ln -sf $(SONAME) $(BUILD_DIR)/$(LIB_NAME)
 
 $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	@echo -e "Linking C executable $(BIN)"
@@ -60,7 +73,7 @@ $(BUILD_DIR)/src/common/%.o: src/common/%.c | $(BUILD_DIR)
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
-$(HEADLESS): $(LIB)
+$(HEADLESS): $(LIB) src/headless/calenter-headless.c
 	@mkdir -p $(BUILD_DIR)/src/headless
 	@echo -e "Compiling and Linking C executable $(HEADLESS)"
 	@$(CC) $(CFLAGS) $(LDLIBS) src/headless/calenter-headless.c \
@@ -73,6 +86,8 @@ install: $(BIN)
 
 	echo "Installing shared object to /usr/lib"
 	cp $(LIB) /usr/lib
+	ln -sf /usr/lib/$(LIB_REAL_NAME) /usr/lib/$(SONAME)
+	ln -sf /usr/lib/$(SONAME) /usr/lib/$(LIB_NAME)
 	ldconfig
 
 	if [ -f "$(APP_HOME)/.calendar/calendar.txt" ]; then
