@@ -15,7 +15,7 @@ struct events get_events(int year, int month, int day);
  *
  * NOTE: you must free the array and every string in the array.
  * */
-char** get_events_str(int year, int month, int day, int* num_events);
+Array* get_events_str(int year, int month, int day);
 
 /*
  * Writes the event to calendar.txt. Returns 0 on success, -1 on failure.
@@ -78,6 +78,12 @@ int time_cmp(int hour1, int min1, int hour2, int min2);
  */
 int date_cmp(int year1, int month1, int day1,
              int year2, int month2, int day2);
+
+/*
+ * Returns -1 if datetime 1 is before datetime 2, 1 if datetime 1 is after datetime 2
+ * and 0 if they are the same
+ */
+int datetime_cmp(struct tm dt1, struct tm dt2);
 
 /*
  * Formats the given date for calendar.txt: "yyyy-mm-dd"

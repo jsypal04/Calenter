@@ -6,8 +6,6 @@
  * using the functions in calendartxt.c.
  */
 
-#include "calendartxt.h"
-#include "array.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -15,6 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "calendartxt.h"
+#include "array.h"
+#include "debug.h" // IWYU pragma: keep
 
 #define INIT_EVENTS_SIZE 500
 
@@ -235,6 +237,7 @@ int parse_ISO_8601_timestamp(char* timestamp, struct tm* time) {
     // TODO: Validate the atoi inputs
     time->tm_hour = atoi(hour);
     time->tm_min = atoi(min);
+    time->tm_isdst = -1;
     mktime(time);
 
     // Handle timezone conversion
@@ -508,17 +511,28 @@ struct events parse_ics(char *path) {
         }
     }
 
+
+    for (int i = 0; i < events.length; i++) {
+        struct event event = events.events[i];
+        if (!event.all_day) {
+            printf("%d-%d-%d %d:%d - %s\n", event.datetime.tm_year + 1900, event.datetime.tm_mon + 1,
+                event.datetime.tm_mday, event.datetime.tm_hour, event.datetime.tm_min,
+                event.summary
+            );
+        } else {
+            printf("%d-%d-%d ALL DAY - %s\n", event.datetime.tm_year + 1900, event.datetime.tm_mon + 1,
+                event.datetime.tm_mday, event.summary
+            );
+        }
+
+    }
+
     fclose(line.ics_file);
     return events;
 }
 
-// int main(int argc, char *argv[]) {
-//   if (argc != 2) {
-//     printf("Usage: ./ics path/to/ics/file\n");
-//     return 0;
-//   }
-//
-//   parse_ics(argv[1]);
-//
-//   return 0;
-// }
+// TODO: use cjson to do this.
+char* parse_ics_to_json(char* path) {
+
+    return NULL;
+}

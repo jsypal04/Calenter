@@ -40,6 +40,9 @@ typedef enum _ERRNO {
     NO_EVENTS,
 } SYNC_ERR;
 
+
+pthread_t syncer_thread;
+
 char*  get_sync_script_path();
 void*  sync_calendar_curl(void* ptr);
 size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream);
@@ -66,48 +69,47 @@ int sync_calendar(char* remote_url) {
 }
 
 void sync_calendar_wrapper(Array* remote_urls) {
-    int num_urls = array_len(remote_urls);
-    for (int i = 0; i < num_urls; i++) {
-        pthread_t syncer_thread;
-        char* remote_url = get_string(remote_urls, i);
-        pthread_create(&syncer_thread, NULL, sync_calendar_curl, remote_url);
-    }
+    pthread_create(&syncer_thread, NULL, sync_calendar_curl, array_dup(remote_urls));
 }
 
 void* sync_calendar_curl(void* ptr) {
-    char* remote_url = (char*)ptr;
+    Array* remote_urls = (Array*)ptr;
 
     CURL* curl;
     FILE* output_file;
     CURLcode res;
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
     curl = curl_easy_init();
 
     if (!curl) {
         curl_easy_cleanup(curl);
-        curl_global_cleanup();
         return NULL;
     };
 
-    output_file = fopen(SYNC_TMP_FILE, "w");
 
-    curl_easy_setopt(curl, CURLOPT_URL, remote_url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, output_file);
+    for (int i = 0; i < array_len(remote_urls); i++) {
+        char* remote_url = get_string(remote_urls, i);
+        output_file = fopen(SYNC_TMP_FILE, "w");
 
-    res = curl_easy_perform(curl);
+        debug_log("remote = %s\n", remote_url);
 
-    if (res != CURLE_OK) return NULL;
+        curl_easy_setopt(curl, CURLOPT_URL, remote_url);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, output_file);
 
+        res = curl_easy_perform(curl);
 
-    fclose(output_file);
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
+        if (res != CURLE_OK) {
+            debug_log("curl_easy_perform() failed: %s\n",
+                    curl_easy_strerror(res));
+            return NULL;
+        }
 
-    debug_log("About to run update_calendartxt\n");
-    update_calendartxt(SYNC_TMP_FILE);
-    debug_log("Ran update_calendartxt\n");
+        fclose(output_file);
+
+        update_calendartxt(SYNC_TMP_FILE);
+    }
+
 
     NotifyNotification* noti = notify_notification_new(
         "Sync Successful",
@@ -116,6 +118,10 @@ void* sync_calendar_curl(void* ptr) {
     );
     notify_notification_show(noti, NULL);
     g_object_unref(G_OBJECT(noti));
+    curl_easy_cleanup(curl);
+
+    free_array(remote_urls);
+
     return NULL;
 }
 
@@ -141,11 +147,10 @@ char* get_sync_script_path() {
     return sync_script_path;
 }
 
+// Might want to make this function public
 int update_calendartxt(char* ics_file) {
-    debug_log("running line %d\n", __LINE__);
     struct events events = parse_ics(ics_file);
     if (events.length == 0) return NO_EVENTS;
-    debug_log("running line %d\n", __LINE__);
 
     // for (int i = 0; i < events.length; i++) {
     //     struct event event = events.events[i];
@@ -156,7 +161,6 @@ int update_calendartxt(char* ics_file) {
     // }
     // printf("---------------------\n");
 
-    debug_log("running line %d\n", __LINE__);
     for (int i = 0; i < events.length; i++) {
         struct event event = events.events[i];
         if (event.rrule.freq == NONE) continue;
@@ -170,7 +174,6 @@ int update_calendartxt(char* ics_file) {
         free(expanded_event.events);
         expanded_event.events = NULL;
     }
-    debug_log("running line %d\n", __LINE__);
 
     // for (int i = 0; i < events.length; i++) {
     //     struct event event = events.events[i];
@@ -182,14 +185,56 @@ int update_calendartxt(char* ics_file) {
 
     // Write all events to calendar.txt
 
-    debug_log("length: %d\n", events.length);
+    
+    time_t raw_time = time(NULL);
+    struct tm* today = localtime(&raw_time);
+    
     for (int i = 0; i < events.length; i++) {
-        debug_log("i: %d\n", i);
         struct event event = events.events[i];
+
+        if (
+            date_cmp(
+                today->tm_year + 1900, today->tm_mon + 1, today->tm_mday,
+                event.datetime.tm_year + 1900, event.datetime.tm_mon + 1, event.datetime.tm_mday
+            ) > 0
+        ) {
+            continue;
+        }
+
+        struct events current_events = get_events(
+            event.datetime.tm_year + 1900, 
+            event.datetime.tm_mon + 1, 
+            event.datetime.tm_mday
+        );
+        
+        bool duplicate_found = false;
+        for (int i = 0; i < current_events.length; i++) {
+            struct event current_event = current_events.events[i];
+            
+            // TODO: refactor this condition. I don't like it.
+            if (
+                current_event.all_day && event.all_day && 
+                strcmp(current_event.summary, event.summary) == 0
+            ) {
+                duplicate_found = true;
+                break;
+            } else if (
+                time_cmp(current_event.datetime.tm_hour, current_event.datetime.tm_min, event.datetime.tm_hour, event.datetime.tm_min) == 0 &&
+                strcmp(current_event.summary, event.summary) == 0
+            ) {
+                duplicate_found = true;
+                break;
+            }
+        }
+
+        if (duplicate_found) continue;
+        
+
+        debug_log("current_events.length = %d\n", current_events.length);
+
         add_event(event, event.datetime.tm_year + 1900,
                 event.datetime.tm_mon + 1, event.datetime.tm_mday);
     }
-    debug_log("running line %d\n", __LINE__);
 
     return SUCCESS;
 }

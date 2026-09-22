@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdarg.h>
 
@@ -5,11 +7,29 @@
 
 #define DEBUG
 
+bool headless;
+
+void lib_printf(const char* format, ...) {
+    if (!headless) return;
+
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 void debug_log(const char* format, ...) {
 #ifdef DEBUG
     #include <time.h>
-    #include <stdio.h>
     #define DEBUG_LOG_FILE "/.calendar/logs/debug.log"
+
+    if (headless) {
+        va_list args;
+        va_start(args, format);
+        vprintf(format, args);
+        va_end(args);
+        return;
+    }
 
     time_t raw_time = time(NULL);
     struct tm* info = localtime(&raw_time);

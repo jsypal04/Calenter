@@ -40,7 +40,7 @@ int notification_daemon_main() {
     pthread_join(worker_thread, NULL);
     notify_uninit();
 
-    return 0;
+    _exit(EXIT_SUCCESS);
 }
 
 void error(const char* msg) {

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <time.h>
 #include "calendartxt.h"
+#include "array.h"
 #include "types.h"
 
 #define CALENDAR_TXT "/.calendar/calendar.txt"
@@ -103,11 +104,10 @@ struct events get_events(int year, int month, int day) {
     return events;
 }
 
-char** get_events_str(int year, int month, int day, int* num_events) {
+Array* get_events_str(int year, int month, int day) {
     struct events events = get_events(year, month, day);
 
-    *num_events = events.length;
-    char** str_events = malloc(sizeof(char*) * events.length);
+    Array* str_events = new_array(events.length, STRING);
 
     for (int i = 0; i < events.length; i++) {
         struct event event = events.events[i];
@@ -134,7 +134,9 @@ char** get_events_str(int year, int month, int day, int* num_events) {
         char* str_event = malloc(sizeof(char) * mem);
 
         sprintf(str_event, "%s - %s", time_str, event.summary);
-        str_events[i] = str_event;
+        append_string(str_events, str_event);
+        free(str_event);
+        str_event = NULL;
     }
     return str_events;
 }

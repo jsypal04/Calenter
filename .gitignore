@@ -5,7 +5,7 @@ logs/
 config/
 ics_files/
 
-calendar.txt
+calendar*.txt
 codebook.toml
 *.ics
 compile_commands.json

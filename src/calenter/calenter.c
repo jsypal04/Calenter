@@ -1,15 +1,18 @@
 #include <asm-generic/errno-base.h>
 #include <assert.h>
+#include <curl/curl.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libnotify/notification.h>
 #include <linux/prctl.h>
 #include <ncurses.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <libnotify/notify.h>
 #include <sys/stat.h>
 #include <sys/prctl.h>
 #include <unistd.h>
+// #include <locale.h>
 
 #include "calenter.h"
 #include "../common/config.h"
@@ -20,6 +23,8 @@
 
 #define DAEMON_FIFO "/tmp/calenter-notification-daemon.fifo"
 
+extern bool headless;
+extern pthread_t syncer_thread;
 
 void start_notification_daemon(Config config);
 void handle_key_press(Window** active_win, int key);
@@ -27,14 +32,16 @@ void handle_key_press(Window** active_win, int key);
 Window* windows[NUM_WINDOWS];
 
 int main() {
+    headless = false;
+
     debug_log("Starting UI...\n");
+    curl_global_init(CURL_GLOBAL_DEFAULT);
     notify_init("Calenter");
 
     Config config = read_config();
     if (config.enable_notifications) {
         start_notification_daemon(config);
-    }
-    else {
+    } else {
         int fifo_fd = open(DAEMON_FIFO, O_WRONLY);
         if (fifo_fd != -1) {
             char buf[2] = "k";
@@ -46,7 +53,8 @@ int main() {
     Window* active_win = NULL;
     int active_win_index = 0;
     int ch;
-
+    
+    // setlocale(LC_ALL, "");
     initscr();
     set_escdelay(25);
     curs_set(0);
@@ -140,6 +148,7 @@ int main() {
         free_array(config.remote_urls);
 
     notify_uninit();
+    curl_global_cleanup();
     return 0;
 }
 

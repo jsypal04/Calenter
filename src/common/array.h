@@ -69,4 +69,6 @@ void sort(Array* array, int (*comparator)(union element));
 
 void print_array(Array* array);
 
+Array* array_dup(Array* array);
+
 #endif
