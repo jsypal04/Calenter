@@ -5,6 +5,7 @@
  */
 
 #include <assert.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
@@ -44,6 +45,18 @@ char* get_calendar_path();
 int write_events(struct events events, int year, int month, int day);
 char* stringify_events(struct events events);
 
+pthread_mutex_t calendartxt_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+FILE* open_calendartxt(char* path) {
+    // pthread_mutex_lock(&calendartxt_mutex);
+    return fopen(path, "r");
+}
+
+void close_calendartxt(FILE* handle) {
+    fclose(handle);
+    // pthread_mutex_unlock(&calendartxt_mutex);
+}
+
 /**
  * Returns the events for the given date
  *
@@ -56,7 +69,7 @@ struct events get_events(int year, int month, int day) {
 
     char* calendar_path = get_calendar_path();
 
-    FILE* calendar_file = fopen(calendar_path, "r");
+    FILE* calendar_file = open_calendartxt(calendar_path);
     free(calendar_path);
     calendar_path = NULL;
 
@@ -98,7 +111,7 @@ struct events get_events(int year, int month, int day) {
         token = strtok(NULL, ",");
     }
     free(trimmed_line);
-    fclose(calendar_file);
+    close_calendartxt(calendar_file);
     trimmed_line = NULL;
 
     return events;
@@ -214,10 +227,14 @@ int write_events(struct events events, int year, int month, int day) {
     format_calendartxt_date(search_str, year, month, day);
 
     char* calendar_path = get_calendar_path();
-    FILE* calendar_file = fopen(calendar_path, "r");
+    FILE* calendar_file = open_calendartxt(calendar_path);
     FILE* tmp = fopen("tmp.txt", "w");
 
-    if (calendar_file == NULL || tmp == NULL) return -1;
+    if (calendar_file == NULL) return -1;
+    if (tmp == NULL) {
+        close_calendartxt(calendar_file);
+        return -1;
+    }
 
     char* line = NULL;
     size_t len;
@@ -255,7 +272,12 @@ int write_events(struct events events, int year, int month, int day) {
         }
     } while (read >= 0);
 
-    fclose(calendar_file);
+    // WARNING: These four lines give me race condition vibes.
+    //   One thread closes calendar.txt. Mutex is available.
+    //   Another thread opens calendar.txt, then opens tmp and writes to it BEFORE this thread renames it.
+    // I have not actually observed this, it is just speculation and a note 
+    // to possibly aleviate the sufferings of my future self :)
+    close_calendartxt(calendar_file);
     fclose(tmp);
     remove(calendar_path);
     rename("tmp.txt", calendar_path);
@@ -479,11 +501,11 @@ struct tm get_last_date() {
     struct tm last_date = {0};
 
     char* calendar_path = get_calendar_path();
-    FILE* calendar = fopen(calendar_path, "r");
+    FILE* calendar = open_calendartxt(calendar_path);
     free(calendar_path);
 
     if (fseek(calendar, 0, SEEK_END) != 0) {
-        fclose(calendar);
+        close_calendartxt(calendar);
         return last_date;
     }
 
@@ -526,13 +548,13 @@ struct tm get_last_date() {
     memset(line, '\0', capacity + 1);
 
     if (!line) {
-        fclose(calendar);
+        close_calendartxt(calendar);
         return last_date;
     }
 
     if (!fgets(line, capacity, calendar)) {
         free(line);
-        fclose(calendar);
+        close_calendartxt(calendar);
         return last_date;
     }
 
@@ -551,7 +573,7 @@ struct tm get_last_date() {
     last_date.tm_mday = atoi(day);
     mktime(&last_date);
 
-    fclose(calendar);
+    close_calendartxt(calendar);
     return last_date;
 }
 

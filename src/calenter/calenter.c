@@ -378,6 +378,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                         delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
                     }
                 }
+                LOG_LOCATION();
 
                 if (new_event.summary == NULL) break;
 
@@ -387,6 +388,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                 new_event.datetime.tm_isdst = -1;
                 mktime(&new_event.datetime);
 
+                LOG_LOCATION();
                 if (new_event.rrule.freq == NONE) {
                     add_event(
                         new_event,
@@ -406,6 +408,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                         );
                     }
                 }
+                LOG_LOCATION();
 
                 free_events(active_win->widgets[sched_index].widget.schedule.events);
                 active_win->widgets[sched_index].widget.schedule.events =
@@ -415,6 +418,7 @@ void handle_key_press(Window** active_win_ref, int key) {
                             new_event.datetime.tm_mday
                     );
 
+                LOG_LOCATION();
                 render_schedule(active_win, true);
                 break;
             }

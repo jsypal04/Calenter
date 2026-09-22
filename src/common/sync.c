@@ -152,15 +152,6 @@ int update_calendartxt(char* ics_file) {
     struct events events = parse_ics(ics_file);
     if (events.length == 0) return NO_EVENTS;
 
-    // for (int i = 0; i < events.length; i++) {
-    //     struct event event = events.events[i];
-    //     printf("%d-%d-%d %d:%d - %s\n",
-    //             event.datetime.tm_mon + 1, event.datetime.tm_mday, event.datetime.tm_year + 1900,
-    //             event.datetime.tm_hour, event.datetime.tm_min, event.summary
-    //     );
-    // }
-    // printf("---------------------\n");
-
     for (int i = 0; i < events.length; i++) {
         struct event event = events.events[i];
         if (event.rrule.freq == NONE) continue;
@@ -175,16 +166,7 @@ int update_calendartxt(char* ics_file) {
         expanded_event.events = NULL;
     }
 
-    // for (int i = 0; i < events.length; i++) {
-    //     struct event event = events.events[i];
-    //     printf("%d-%d-%d %d:%d - %s\n",
-    //             event.datetime.tm_mon + 1, event.datetime.tm_mday, event.datetime.tm_year + 1900,
-    //             event.datetime.tm_hour, event.datetime.tm_min, event.summary
-    //     );
-    // }
-
     // Write all events to calendar.txt
-
     
     time_t raw_time = time(NULL);
     struct tm* today = localtime(&raw_time);
