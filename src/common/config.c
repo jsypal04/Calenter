@@ -70,9 +70,7 @@ Config read_config() {
         } else if (strcmp(line.key, "notify_time") == 0) {
             config.notify_time = atoi(line.value);
             debug_log("notify_time: %d\n", config.notify_time);
-        } else {
-            debug_log("Bad config option: '%s'\n", line.key);
-        }
+        } 
 
         free(line.value);
         line.value = NULL;
@@ -103,6 +101,16 @@ ConfigLine parse_next_config_line(FILE* config_file, int* retval) {
         return config_line;
     }
 
+    char* hash_ptr = strstr(line, "#");
+    if (hash_ptr != NULL) {
+        bzero(hash_ptr, strlen(hash_ptr));
+    }
+
+    char* semi_ptr = strstr(line, ";");
+    if (semi_ptr != NULL) {
+        bzero(semi_ptr, strlen(semi_ptr));
+    }
+
     char* eq_ptr = strstr(line, "=");
     if (eq_ptr == NULL) {
         *retval = 1;
@@ -129,9 +137,9 @@ char* get_config_path() {
 
     if (home == NULL) return NULL;
 
-    char* config_path = malloc(sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
-    memset(config_path, '\0', sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(CONFIG_FILE) + 5));
-    sprintf(config_path, "%s%s%s", home, CONFIG_DIR, CONFIG_FILE);
+    char* config_path = malloc(sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(INI_CONFIG_FILE) + 5));
+    memset(config_path, '\0', sizeof(char) * (strlen(home) + strlen(CONFIG_DIR) + strlen(INI_CONFIG_FILE) + 5));
+    sprintf(config_path, "%s%s%s", home, CONFIG_DIR, INI_CONFIG_FILE);
 
     return config_path;
 }

@@ -24,13 +24,10 @@ This sets the library paths properly before starting the app which prevents miss
 
 ## Configuration
 
-You may create a config file at `~/.config/calenter/config`. It uses the
-following basic syntax:
-```
-key = value
-```
+You may create a config file at `~/.config/calenter/config.ini`. It uses the
 
 Currently, there are only options to add a remote calendar and to configure notification settings.
+You can add any number of remote urls and calendar.txt will be synced with all of them.
 An example config is included below.
 
 ```
