@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <sys/prctl.h>
 #include <unistd.h>
-// #include <locale.h>
+#include <locale.h>
 
 #include "calenter.h"
 #include "../common/config.h"
@@ -54,7 +54,7 @@ int main() {
     int active_win_index = 0;
     int ch;
     
-    // setlocale(LC_ALL, "");
+    setlocale(LC_ALL, "");
     initscr();
     set_escdelay(25);
     curs_set(0);
@@ -378,7 +378,6 @@ void handle_key_press(Window** active_win_ref, int key) {
                         delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
                     }
                 }
-                LOG_LOCATION();
 
                 if (new_event.summary == NULL) break;
 
@@ -388,7 +387,6 @@ void handle_key_press(Window** active_win_ref, int key) {
                 new_event.datetime.tm_isdst = -1;
                 mktime(&new_event.datetime);
 
-                LOG_LOCATION();
                 if (new_event.rrule.freq == NONE) {
                     add_event(
                         new_event,
@@ -408,7 +406,6 @@ void handle_key_press(Window** active_win_ref, int key) {
                         );
                     }
                 }
-                LOG_LOCATION();
 
                 free_events(active_win->widgets[sched_index].widget.schedule.events);
                 active_win->widgets[sched_index].widget.schedule.events =
@@ -418,7 +415,6 @@ void handle_key_press(Window** active_win_ref, int key) {
                             new_event.datetime.tm_mday
                     );
 
-                LOG_LOCATION();
                 render_schedule(active_win, true);
                 break;
             }

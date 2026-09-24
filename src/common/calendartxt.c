@@ -48,13 +48,13 @@ char* stringify_events(struct events events);
 pthread_mutex_t calendartxt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 FILE* open_calendartxt(char* path) {
-    // pthread_mutex_lock(&calendartxt_mutex);
+    pthread_mutex_lock(&calendartxt_mutex);
     return fopen(path, "r");
 }
 
 void close_calendartxt(FILE* handle) {
     fclose(handle);
-    // pthread_mutex_unlock(&calendartxt_mutex);
+    pthread_mutex_unlock(&calendartxt_mutex);
 }
 
 /**
@@ -85,6 +85,7 @@ struct events get_events(int year, int month, int day) {
         // There are no events on this day.
         struct events events;
         init_events(&events);
+        close_calendartxt(calendar_file);
         return events;
     }
 
