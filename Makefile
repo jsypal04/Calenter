@@ -5,8 +5,10 @@ MAJOR = 0
 MINOR = 3
 PATCH = 1
 
+# TESTING = -DTESTING
+
 CC = gcc
-CFLAGS = -g -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify)
+CFLAGS = -g -Wall $(shell pkg-config --cflags --libs glib-2.0 libnotify) $(TESTING)
 LDLIBS = -lncurses -lcurl -lm -pthread
 BUILD_DIR = build
 
@@ -16,6 +18,9 @@ LIB_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(LIB_SRC_FILES))
 BIN_SRC_FILES := $(shell find ./src/calenter -name "*.c" | sed 's#^\./##')
 BIN_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(BIN_SRC_FILES))
 
+TEST_SRC_FILES := $(shell find ./tests -name "*.c" | sed 's#^\./##')
+TEST_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(TEST_SRC_FILES))
+
 LIB_NAME      = libcalenter.so
 LIB_REAL_NAME = $(LIB_NAME).$(MAJOR).$(MINOR).$(PATCH)
 SONAME        = $(LIB_NAME).$(MAJOR)
@@ -23,6 +28,7 @@ SONAME        = $(LIB_NAME).$(MAJOR)
 LIB  = $(BUILD_DIR)/$(LIB_REAL_NAME)
 BIN  = $(BUILD_DIR)/calenter
 HEADLESS = $(BUILD_DIR)/calenter-headless
+TEST_BIN = $(BUILD_DIR)/calenter-tests
 
 all: $(BIN) $(LIB) $(HEADLESS)
 
@@ -31,6 +37,10 @@ library: $(LIB)
 binary: $(BIN)
 
 headless: $(HEADLESS)
+
+test: $(TEST_BIN)
+	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
+	./$(TEST_BIN)
 
 run: $(BIN)
 	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
@@ -60,6 +70,13 @@ $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	    -L$(BUILD_DIR) -lcalenter -o $(BIN)
 	@echo -e "\e[32mBuilt target $(BIN)\e[0m"
 
+$(TEST_BIN): $(LIB) $(BIN_OBJ_FILES) $(TEST_OBJ_FILES)
+	@echo -e "Linking C executable $(TEST_BIN)"
+	@$(CC) $(CFLAGS) $(LDLIBS) $(BIN_OBJ_FILES) $(TEST_OBJ_FILES) \
+		-L$(BUILD_DIR) -lcalenter -o $(TEST_BIN)
+	@echo -e "\e[32mBuilt target $(TEST_BIN)\e[0m"
+	
+
 $(BUILD_DIR)/src/calenter/%.o: src/calenter/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
@@ -68,6 +85,11 @@ $(BUILD_DIR)/src/calenter/%.o: src/calenter/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/src/common/%.o: src/common/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -fPIC -c $< -o $@
+	@echo -e "Compiling C object $@"
+
+$(BUILD_DIR)/tests/%.o: tests/%.c | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
 	@echo -e "Compiling C object $@"
 
 $(BUILD_DIR):
@@ -99,11 +121,5 @@ install: $(BIN)
 
 	echo "Installing binary to $(APP_HOME)/.local/bin"
 	cp $(BIN) $(APP_HOME)/.local/bin
-	echo "Installing python scripts to $(APP_HOME)/.calendar/scripts"
-	cp -r scripts $(APP_HOME)/.calendar
-
-	if ! command -v python3 >/dev/null 2>&1; then
-		echo "Python 3 is not installed. You must install Python 3 to run sync calendar.txt with your Google Calendar."
-	fi   
 
 .PHONY: all library binary run clean install headless run-headless

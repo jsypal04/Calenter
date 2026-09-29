@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include "types.h"
 
+void set_calendar_path(char* path);
+
 /*
  * Gets an array of all the events for a given day from calendar.txt
  */

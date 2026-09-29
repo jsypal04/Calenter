@@ -20,16 +20,22 @@ extern pthread_t syncer_thread;
 
 typedef struct flags {
     bool redirect_logs;
+    char* calendartxt_path;
 } Flags;
 
 void  print_usage();
 bool  is_valid_int(char* str);
 Flags parse_cli_flags(int* argc, char** argv);
+int parse_date(char* date, int* year, int* month, int* day);
 
 int update_calendartxt(char* ics_file);
 
 int main(int argc, char** argv) {
     Flags cli_flags = parse_cli_flags(&argc, argv);
+    
+    if (cli_flags.calendartxt_path != NULL) {
+        set_calendar_path(cli_flags.calendartxt_path);
+    }
 
     notify_init("Calenter");
 
@@ -54,20 +60,17 @@ int main(int argc, char** argv) {
             printf("Usage: calenter-headless get-events yyyy-mm-dd\n");
             return 1;
         }
-        char year[5] = "\0";
-        char month[3] = "\0";
-        char day[3] = "\0";
 
-        strncpy(year, argv[2], 4);
-        strncpy(month, argv[2] + 5, 2);
-        strncpy(day, argv[2] + 8, 2);
+        int year;
+        int month;
+        int day;
 
-        if (!is_valid_int(year) || !is_valid_int(month) || !is_valid_int(day)) {
-            printf("Only numbers please!\n");
-            return 1;
+        int retval = parse_date(argv[2], &year, &month, &day);
+        if (retval != 0) {
+            return retval;
         }
 
-        Array* events = get_events_str(atoi(year), atoi(month), atoi(day));
+        Array* events = get_events_str(year, month, day);
 
         for (int i = 0; i < array_len(events); i++) {
             char* event = get_string(events, i);
@@ -75,6 +78,22 @@ int main(int argc, char** argv) {
         }
 
         free_array(events);
+    } else if (strcmp(argv[1], "add-event")) {
+        if (argc != 3) {
+            printf("Usage: calenter-headless add-event yyyy-mm-dd hh:mm <summary> <RRULE>");
+            return 1;
+        }
+
+        int year;
+        int month;
+        int day;
+
+        int retval = parse_date(argv[2], &year, &month, &day);
+        if (retval != 0) {
+            return retval;
+        }
+
+        
     } else if (strcmp(argv[1], "update-calendar") == 0) {
         if (argc != 3) {
             printf("Usage: calenter-headless update-calendar path/to/calendar_file.ics\n");
@@ -101,14 +120,15 @@ int main(int argc, char** argv) {
 }
 
 void print_usage() {
-    printf("Usage: %s [-r | --redirect-logs] <command> [<args>]\n\n", BIN);
+    printf("Usage: %s [-r | --redirect-logs] [-c | --calendartxt-path <path>] <command> [<args>]\n\n", BIN);
     printf("These are the available commands:\n\n");
     printf("  sync              updates calendar.txt with events from all remote_urls\n");
     printf("  get-events        prints the events for the provided date (yyyy-mm-dd)\n");
     printf("  update-calendar   updates calendar.txt using the provided ics file\n");
     printf("  parse-ics         prints the list of events in the provided ics file\n\n");
     printf("Flags:\n\n");
-    printf("  -r, --redirect-logs   redirects debug_log calls to stdout instead of debug.log\n\n");
+    printf("  -r, --redirect-logs             redirects debug_log calls to stdout instead of debug.log\n");
+    printf("  -c, --calendartxt-path <path>   the calendar.txt file to use\n\n");
 }
 
 bool is_valid_int(char* str) {
@@ -124,11 +144,13 @@ Flags parse_cli_flags(int* argc, char** argv) {
     int num_args = 0;
     char** new_argv = malloc(sizeof(char*) * (*argc));
 
-    for (int i = 0; i < *argc; i++) {
+    int i = 0;
+    while (i < *argc) {
         if (strlen(argv[i]) == 0) continue;
         if (argv[i][0] != '-') {
             new_argv[num_args] = argv[i];
             num_args++;
+            i++;
             continue;
         }
         
@@ -137,11 +159,17 @@ Flags parse_cli_flags(int* argc, char** argv) {
             strcmp(argv[i], "--redirect-logs") == 0
         ) {
             cli_flags.redirect_logs = true;
+        } else if (
+            (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--calendartxt-path") == 0) &&
+            i < *argc - 1
+        ) {
+            cli_flags.calendartxt_path = argv[i + 1];
+            i++;
         } else {
             print_usage();
             _exit(EXIT_FAILURE);
         }
-
+        i++;
     }
 
     *argc = num_args;
@@ -153,4 +181,26 @@ Flags parse_cli_flags(int* argc, char** argv) {
     new_argv = NULL;
 
     return cli_flags;
+}
+
+int parse_date(char* date, int* year, int* month, int* day) {
+
+    char year_str[5] = "\0";
+    char month_str[3] = "\0";
+    char day_str[3] = "\0";
+
+    strncpy(year_str, date, 4);
+    strncpy(month_str, date + 5, 2);
+    strncpy(day_str, date + 8, 2);
+
+    if (!is_valid_int(year_str) || !is_valid_int(month_str) || !is_valid_int(day_str)) {
+        printf("Only numbers please!\n");
+        return 1;
+    }
+
+    *year = atoi(year_str);
+    *month = atoi(month_str);
+    *day = atoi(day_str);
+
+    return 0;
 }

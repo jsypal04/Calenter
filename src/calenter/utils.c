@@ -3,20 +3,23 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+
 #include "calenter.h"
+#include "../common/array.h"
+#include "../common/calendartxt.h"
 
 // TODO: Handle leap years.
 int get_days_in_month(int month) {
     switch (month) {
-        case 1: return 31;
-        case 2: return 28;
-        case 3: return 31;
-        case 4: return 30;
-        case 5: return 31;
-        case 6: return 30;
-        case 7: return 31;
-        case 8: return 31;
-        case 9: return 30;
+        case  1: return 31;
+        case  2: return 28;
+        case  3: return 31;
+        case  4: return 30;
+        case  5: return 31;
+        case  6: return 30;
+        case  7: return 31;
+        case  8: return 31;
+        case  9: return 30;
         case 10: return 31;
         case 11: return 30;
         case 12: return 31;
@@ -26,15 +29,15 @@ int get_days_in_month(int month) {
 
 char* get_month_name(int month) {
     switch (month) {
-        case 1: return "January";
-        case 2: return "February";
-        case 3: return "March";
-        case 4: return "April";
-        case 5: return "May";
-        case 6: return "June";
-        case 7: return "July";
-        case 8: return "August";
-        case 9: return "September";
+        case  1: return "January";
+        case  2: return "February";
+        case  3: return "March";
+        case  4: return "April";
+        case  5: return "May";
+        case  6: return "June";
+        case  7: return "July";
+        case  8: return "August";
+        case  9: return "September";
         case 10: return "October";
         case 11: return "November";
         case 12: return "December";
@@ -44,13 +47,13 @@ char* get_month_name(int month) {
 
 char* get_wday_name(int wday) {
     switch (wday) {
-        case 0: return "Sunday";
-        case 1: return "Monday";
-        case 2: return "Tuesday";
-        case 3: return "Wednesday";
-        case 4: return "Thursday";
-        case 5: return "Friday";
-        case 6: return "Saturday";
+        case  0: return "Sunday";
+        case  1: return "Monday";
+        case  2: return "Tuesday";
+        case  3: return "Wednesday";
+        case  4: return "Thursday";
+        case  5: return "Friday";
+        case  6: return "Saturday";
         default: return NULL;
     }
 }
@@ -108,4 +111,47 @@ char* stringify_datetime(struct tm dt, size_t* len) {
     );
 
     return str;
+}
+
+/**
+ * Splits a single line into an array of lines depending on
+ * the container width
+ * */
+Array* split_line(char* line, int container_width) {
+    const int line_length = strlen(line);
+    Array* lines = new_array(5, STRING);
+
+    if (line_length < container_width) {
+        append_string(lines, line);
+        return lines;
+    }
+
+    while (strlen(line) >= container_width) {
+        trim(line);
+        for (int i = container_width - 1; i >= 0; i--) {
+            if (i == 0) {
+                char* new_line = strndup(line, container_width);
+                trim(new_line);
+                append_string(lines, new_line);
+                free(new_line);
+                new_line = NULL;
+                line += container_width;
+                break;
+            }
+
+            if (line[i] != ' ') continue;
+
+            char* new_line = strndup(line, i + 1);
+            trim(new_line);
+            append_string(lines, new_line);
+            free(new_line);
+            new_line = NULL;
+            line += i;
+            break;
+        }
+    }
+    trim(line);
+    append_string(lines, line);
+
+    return lines;
 }

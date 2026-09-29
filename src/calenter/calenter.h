@@ -103,9 +103,14 @@ bool verify_date(char* date);
 
 char* stringify_datetime(struct tm dt, size_t* len);
 
+char* dump_ui_state(Schedule schedule_widget, Calendar calendar_widget);
+
 /*
  * Notificatin Daemon functions
  * */
 int notification_daemon_main();
+
+
+Array* split_line(char* line, int container_width);
 
 #endif

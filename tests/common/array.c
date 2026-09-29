@@ -1,4 +1,4 @@
-#include "../src/utils/array.h"
+#include "../../src/common/array.h"
 
 int comp_ints(union element e) {
     return e.i;
@@ -70,10 +70,4 @@ int test_sort_BYxxx() {
     print_array(array);
 
     return 0;
-}
-
-int main() {
-
-    test_sort_BYxxx();
-    // test_sort_reversed_ints();
 }

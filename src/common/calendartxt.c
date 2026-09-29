@@ -21,6 +21,8 @@
 #define EXPAND 1
 #define NA 0
 
+char* calendartxt_path = NULL;
+pthread_mutex_t calendartxt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Table that is used to determine how to apply a BYxxx rule
 int BYxxx_Table[9][7] = {
@@ -45,7 +47,10 @@ char* get_calendar_path();
 int write_events(struct events events, int year, int month, int day);
 char* stringify_events(struct events events);
 
-pthread_mutex_t calendartxt_mutex = PTHREAD_MUTEX_INITIALIZER;
+void set_calendar_path(char* path) {
+    // TODO: validate the file exists
+    calendartxt_path = path;
+}
 
 FILE* open_calendartxt(char* path) {
     pthread_mutex_lock(&calendartxt_mutex);
@@ -484,6 +489,10 @@ void format_calendartxt_date(char* buffer, int year, int month, int day) {
 }
 
 char* get_calendar_path() {
+    if (calendartxt_path != NULL) {
+        return calendartxt_path;
+    }
+
     char* home_dir = getenv("HOME");
     if (home_dir == NULL) {
         exit(1);

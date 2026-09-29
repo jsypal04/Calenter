@@ -32,6 +32,7 @@ An example config is included below.
 
 ```
 remote_url = <your gcal url>
+remote_url = <your other gcal url>
 enable_notifications = true
 notify_time = 10
 ```
@@ -48,6 +49,19 @@ Run the following commands:
 git clone https://github.com/jsypal04/Calenter.git
 sudo make install
 ```
+
+## Test Suite
+
+I have begun writing tests. To run the test suite, uncomment the `TESTING`
+variable in the Makefile then run the following commands.
+
+```bash
+make clean
+make test
+```
+The `TESTING` variable is necessary because I do this janky thing where I disable
+main function in calenter.c and enable the main function in test.c. The `TESTING`
+variable is the flag to do that.
 
 ## Feature List
 

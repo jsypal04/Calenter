@@ -1,7 +1,10 @@
 #include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "calenter.h"
+#include "../common/debug.h"
+#include "../common/array.h"
 
 extern Window* windows[NUM_WINDOWS];
 
@@ -84,11 +87,16 @@ void refresh_controls(int win_id) {
             break;
     }
 
-    int x = (windows[CONTROLS_WIN]->width - strlen(controls_str)) / 2;
+    Array* lines = split_line(controls_str, windows[CONTROLS_WIN]->width);
 
     werase(windows[CONTROLS_WIN]->win);
     wattron(windows[CONTROLS_WIN]->win, COLOR_PAIR(CONTROLS_COLOR_PAIR));
-    mvwprintw(windows[CONTROLS_WIN]->win, 1, x, "%s", controls_str);
+    for (int i = 0; i < array_len(lines); i++) {
+        char* line = get_string(lines, i);
+        int x = (windows[CONTROLS_WIN]->width - strlen(line)) / 2;
+        mvwprintw(windows[CONTROLS_WIN]->win, i + 1, x, "%s", line);
+    }
     wattroff(windows[CONTROLS_WIN]->win, COLOR_PAIR(CONTROLS_COLOR_PAIR));
     refresh_win(windows[CONTROLS_WIN], false);
+    free_array(lines);
 }

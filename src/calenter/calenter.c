@@ -31,6 +31,7 @@ void handle_key_press(Window** active_win, int key);
 
 Window* windows[NUM_WINDOWS];
 
+#ifndef TESTING
 int main() {
     headless = false;
 
@@ -151,6 +152,7 @@ int main() {
     curl_global_cleanup();
     return 0;
 }
+#endif
 
 void start_notification_daemon(Config config) {
     debug_log("Starting notification daemon...\n");
