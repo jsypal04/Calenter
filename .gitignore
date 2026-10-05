@@ -4,6 +4,7 @@ build/
 logs/
 config/
 ics_files/
+scripts/
 
 calendar*.txt
 codebook.toml
