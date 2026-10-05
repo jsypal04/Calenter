@@ -1,9 +1,11 @@
 #ifndef CALENTERM_H
 #define CALENTERM_H
 
+#include <pthread.h>
 #include <stddef.h>
 #include <ncurses.h>
-#include "../common/types.h"
+
+#include "types.h"
 
 #define DEBUG
 #define ACTIVE_COLOR_PAIR       1
@@ -23,6 +25,8 @@
 #define NUM_FOCUSABLE_WINDOWS 2
 
 #define CTRL(x) ((x) & 0x1f)
+
+#define SOCKET_PATH "/tmp/calenter.sock"
 
 typedef struct _calender_widget {
     int selected_day;
@@ -104,6 +108,22 @@ bool verify_date(char* date);
 char* stringify_datetime(struct tm dt, size_t* len);
 
 char* dump_ui_state(Schedule schedule_widget, Calendar calendar_widget);
+
+pthread_t start_state_broadcast();
+
+// /**
+//  * Channel functions
+//  * */
+//
+// typedef struct channel Channel;
+//
+// void channel_send(Channel* channel, char* message);
+//
+// char* channel_receive(Channel* channel);
+//
+// void init_channel(Channel* channel);
+//
+// void destroy_channel(Channel* channel);
 
 /*
  * Notificatin Daemon functions

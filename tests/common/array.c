@@ -1,4 +1,4 @@
-#include "../../src/common/array.h"
+#include "array.h"
 
 int comp_ints(union element e) {
     return e.i;

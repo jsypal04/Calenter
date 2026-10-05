@@ -5,8 +5,8 @@
 #include <string.h>
 
 #include "calenter.h"
-#include "../common/array.h"
-#include "../common/calendartxt.h"
+#include "array.h"
+#include "calendartxt.h"
 
 // TODO: Handle leap years.
 int get_days_in_month(int month) {

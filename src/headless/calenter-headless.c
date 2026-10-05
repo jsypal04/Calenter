@@ -6,17 +6,20 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "../common/config.h"
-#include "../common/sync.h"
-#include "../common/array.h"
-#include "../common/calendartxt.h"
-#include "../common/ics.h"
+#include "calenter.h"
+#include "channel.h"
+#include "config.h"
+#include "sync.h"
+#include "array.h"
+#include "calendartxt.h"
+#include "ics.h"
 
 
 #define BIN "calenter-headless"
 
 extern bool headless;
 extern pthread_t syncer_thread;
+extern Channel_C* broadcast_channel;
 
 typedef struct flags {
     bool redirect_logs;
@@ -39,6 +42,7 @@ int main(int argc, char** argv) {
 
     notify_init("Calenter");
 
+
     if (cli_flags.redirect_logs) {
         headless = true;
     } else {
@@ -51,7 +55,7 @@ int main(int argc, char** argv) {
     }
 
     Config config = read_config();
-    
+
     if (strcmp(argv[1], "sync") == 0) {
         sync_calendar_wrapper(config.remote_urls);
         pthread_join(syncer_thread, NULL);
@@ -78,9 +82,9 @@ int main(int argc, char** argv) {
         }
 
         free_array(events);
-    } else if (strcmp(argv[1], "add-event")) {
+    } else if (strcmp(argv[1], "add-event") == 0) {
         if (argc != 3) {
-            printf("Usage: calenter-headless add-event yyyy-mm-dd hh:mm <summary> <RRULE>");
+            printf("Usage: calenter-headless add-event yyyy-mm-dd hh:mm <summary> <RRULE>\n");
             return 1;
         }
 
@@ -108,7 +112,30 @@ int main(int argc, char** argv) {
         }
 
         parse_ics(argv[2]);
-    } else {
+    } else if (strcmp(argv[1], "broadcast") == 0) {
+        broadcast_channel = new_channel();
+
+        pthread_t broadcaster = start_state_broadcast();
+
+        char input[2048];
+        bzero(input, 2048);
+
+        printf("> ");
+
+        char* std_input = fgets(input, 2048, stdin);
+        std_input[strlen(std_input) - 1] = '\0';
+
+        while (strcmp(input, "/quit") != 0) {
+            channel_send(broadcast_channel, std_input);
+            printf("> ");
+            std_input = fgets(input, 2048, stdin);
+            std_input[strlen(std_input) - 1] = '\0';
+        }
+
+        pthread_cancel(broadcaster);
+        destroy_channel(broadcast_channel);
+    }
+    else {
         print_usage();
     }
 
@@ -125,7 +152,8 @@ void print_usage() {
     printf("  sync              updates calendar.txt with events from all remote_urls\n");
     printf("  get-events        prints the events for the provided date (yyyy-mm-dd)\n");
     printf("  update-calendar   updates calendar.txt using the provided ics file\n");
-    printf("  parse-ics         prints the list of events in the provided ics file\n\n");
+    printf("  parse-ics         prints the list of events in the provided ics file\n");
+    printf("  broadcast         opens a prompt that sends whatever is typed over the broadcast socket.\n\n");
     printf("Flags:\n\n");
     printf("  -r, --redirect-logs             redirects debug_log calls to stdout instead of debug.log\n");
     printf("  -c, --calendartxt-path <path>   the calendar.txt file to use\n\n");

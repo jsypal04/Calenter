@@ -1,11 +1,11 @@
-#include "array.h"
-#include "types.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
+#include "types.h"
 
 struct array_t {
     unsigned int length;

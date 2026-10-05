@@ -15,16 +15,18 @@
 #include <locale.h>
 
 #include "calenter.h"
-#include "../common/config.h"
-#include "../common/sync.h"
-#include "../common/calendartxt.h"
-#include "../common/array.h"
-#include "../common/debug.h"
+#include "config.h"
+#include "sync.h"
+#include "calendartxt.h"
+#include "array.h"
+#include "debug.h"
+#include "channel.h"
 
 #define DAEMON_FIFO "/tmp/calenter-notification-daemon.fifo"
 
 extern bool headless;
 extern pthread_t syncer_thread;
+extern Channel_C* broadcast_channel;
 
 void start_notification_daemon(Config config);
 void handle_key_press(Window** active_win, int key);
@@ -93,6 +95,9 @@ int main() {
 
     set_active_window(&active_win, windows[active_win_index]);
 
+    pthread_t broadcaster_thread = start_state_broadcast();
+    broadcast_channel = new_channel();
+
     while (true) {
         ch = wgetch(active_win->win);
 
@@ -139,6 +144,13 @@ int main() {
         if (ch == 'q') {
             break;
         }
+
+        int sched_index = get_widget_index(windows[SCHEDULE_WIN], SCHEDULE);
+        int cal_index = get_widget_index(windows[CALENDAR_WIN], CALENDAR);
+        char* state = dump_ui_state(windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule, windows[CALENDAR_WIN]->widgets[cal_index].widget.calendar);
+        channel_send(broadcast_channel, state);
+        free(state);
+        state = NULL;
     }
 
     free_win(windows[0]);
@@ -147,6 +159,9 @@ int main() {
 
     if (config.remote_urls != NULL)
         free_array(config.remote_urls);
+
+    pthread_cancel(broadcaster_thread);
+    remove(SOCKET_PATH);
 
     notify_uninit();
     curl_global_cleanup();

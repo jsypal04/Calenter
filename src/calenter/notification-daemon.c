@@ -8,7 +8,7 @@
 #include <libnotify/notification.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "../common/calendartxt.h"
+#include "calendartxt.h"
 
 #define KILL        'k'
 #define NOTIFY_TIME 't'

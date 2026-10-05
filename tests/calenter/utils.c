@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../../src/calenter/calenter.h"
-#include "../../src/common/array.h"
+#include "calenter.h"
+#include "array.h"
 
 typedef struct test {
     char* name;

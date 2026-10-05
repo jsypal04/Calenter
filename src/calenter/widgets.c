@@ -4,8 +4,8 @@
 #include <string.h>
 
 #include "calenter.h"
-#include "../common/calendartxt.h"
-#include "../common/debug.h"
+#include "calendartxt.h"
+#include "debug.h"
 
 
 void add_widget(Window* window, Widget widget) {

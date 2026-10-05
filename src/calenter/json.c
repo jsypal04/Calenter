@@ -5,7 +5,10 @@
  * socket. It has no functionality to parse json
  * */
 
+#include <semaphore.h>
+#include <math.h>
 #include <pthread.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -13,14 +16,125 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../common/calendartxt.h"
+#include "calendartxt.h"
 #include "calenter.h"
-#include "../common/debug.h"
+#include "debug.h"
+#include "channel.h"
 
-#define SOCKET_PATH "/tmp/calenter.sock"
+
+Channel_C* broadcast_channel;
+
+// #define CHANNEL_BUFFER_CAP 8
+//
+// typedef struct channel {
+//     char buffer[CHANNEL_BUFFER_CAP];
+//     bool last_chunk;
+//     sem_t semaphore;
+//     pthread_mutex_t mutex;
+// } Channel;
+//
+// Channel broadcast_channel = {0};
+//
+// void init_channel(Channel* channel) {
+//     bzero(channel->buffer, CHANNEL_BUFFER_CAP);
+//     channel->last_chunk = false;
+//     sem_init(&channel->semaphore, 0, 0);
+// }
+//
+// void destroy_channel(Channel* channel) {
+//     sem_destroy(&channel->semaphore);
+// }
+
+/**
+ * Doubles the size of the buffer passed
+ * */
+void expand_buffer(char* buffer, size_t buffer_len, size_t buffer_cap) {
+    buffer_cap *= 2;
+    char* new_buffer = malloc(sizeof(char) * buffer_cap);
+    bzero(new_buffer, sizeof(char) * buffer_cap);
+    strncpy(new_buffer, buffer, buffer_cap);
+    free(buffer);
+    buffer = new_buffer;
+}
+
+// void channel_send(Channel* channel, char* message) {
+//     if (strlen(message) < CHANNEL_BUFFER_CAP) {
+//         pthread_mutex_lock(&channel->mutex);
+//         strncpy(channel->buffer, message, CHANNEL_BUFFER_CAP - 1);
+//         channel->last_chunk = true;
+//         pthread_mutex_unlock(&channel->mutex);
+//         sem_post(&channel->semaphore);
+//         return;
+//     }
+//
+//     double num_chunks = ceil((double) strlen(message) / (CHANNEL_BUFFER_CAP - 1));
+//     int chunk_number = 1;
+//
+//     for (int i = 0; i < strlen(message); i += CHANNEL_BUFFER_CAP - 1) {
+//         sem_wait(&channel->semaphore);
+//         char* chunk_start = message + i;
+//         pthread_mutex_lock(&channel->mutex);
+//         strncpy(channel->buffer, chunk_start, CHANNEL_BUFFER_CAP - 1);
+//
+//         if (chunk_number == num_chunks) {
+//             channel->last_chunk = true;
+//         } else {
+//             channel->last_chunk = false;
+//         }
+//
+//         // This should never happen but just in case, log it and correct the issue.
+//         if (channel->buffer[CHANNEL_BUFFER_CAP - 1] != '\0') {
+//             debug_log("WARNING: channel buffer is not null terminated. Inserting a null character.\n");
+//             channel->buffer[CHANNEL_BUFFER_CAP - 1] = '\0';
+//         }
+//         pthread_mutex_unlock(&channel->mutex);
+//
+//         sem_post(&channel->semaphore);
+//     }
+// }
+//
+//
+// char* channel_receive(Channel* channel) {
+//     size_t message_cap = CHANNEL_BUFFER_CAP;
+//     size_t message_len = 0;
+//     char* message = malloc(sizeof(char) * message_cap);
+//     bzero(message, message_cap);
+//
+//     while (true) {
+//         sem_wait(&channel->semaphore);
+//
+//         // receive the message chunk
+//         pthread_mutex_lock(&channel->mutex);
+//         size_t chunk_len = strlen(channel->buffer);
+//         if (message_len + chunk_len >= message_cap - 1)
+//             // Since this function doubles the message buffer and the message buffer
+//             // starts with the same capacity as the channel buffer I think we are
+//             // guarenteed that the next chunk will fit after one doubling.
+//             expand_buffer(message, message_len, message_cap);
+//
+// #undef printf
+//         printf("\nchunk = %s\n", channel->buffer);
+//
+//         strncpy(message + message_len, channel->buffer, message_cap - message_len - 1);
+//         message_len += strlen(channel->buffer);
+//
+//         bzero(channel->buffer, CHANNEL_BUFFER_CAP);
+//
+//         if (channel->last_chunk) {
+//             pthread_mutex_unlock(&channel->mutex);
+//             break;
+//         }
+//         pthread_mutex_unlock(&channel->mutex);
+//
+//         sem_post(&channel->semaphore);
+//     }
+//
+//     return message;
+// }
+
 
 char* dump_events(struct events events) {
-    int buffer_cap = 2028;
+    int buffer_cap = 2048;
     int buffer_len = 0;
     char* buffer = malloc(sizeof(char) * buffer_cap);
     bzero(buffer, sizeof(char) * buffer_cap);
@@ -30,12 +144,7 @@ char* dump_events(struct events events) {
 
     for (int i = 0; i < events.length; i++) {
         if (buffer_len == buffer_cap) {
-            buffer_cap *= 2;
-            char* new_buffer = malloc(sizeof(char) * buffer_cap);
-            bzero(new_buffer, sizeof(char) * buffer_cap);
-            strncpy(new_buffer, buffer, buffer_cap);
-            free(buffer);
-            buffer = new_buffer;
+            expand_buffer(buffer, buffer_len, buffer_cap);
         }
 
         struct event event = events.events[i];
@@ -96,19 +205,23 @@ void* state_broadcast(void* args) {
     struct sockaddr_un addr = {0};
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path) - 1);
+    int r = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
 
-    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        debug_log("failed to connect to socket %s\n", SOCKET_PATH);
-        close(fd);
+    if (r != 0) {
+        debug_log("Failed to bind socket to %s\n", SOCKET_PATH);
         return NULL;
     }
 
-    debug_log("Connected to harness on %s\n", SOCKET_PATH);
+    listen(fd, 5);
+    int conn = accept(fd, NULL, NULL);
 
-    // while state received from channel that I will create
-    //     write(fd, message, strlen(message) - 1)
-    //     free(message);
-    //     message = NULL;
+    size_t n;
+    do {
+        char* message = channel_receive(broadcast_channel, &n);
+        write(conn, message, n);
+        free(message);
+        message = NULL;
+    } while (true);
 
     close(fd);
     return NULL;

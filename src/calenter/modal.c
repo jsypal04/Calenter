@@ -7,8 +7,8 @@
 #include <math.h>
 
 #include "calenter.h"
-#include "../common/calendartxt.h"
-#include "../common/debug.h"
+#include "calendartxt.h"
+#include "debug.h"
 
 #define MODAL_WIDTH_BREAKPOINT 85
 #define NUM_INPUTS 7
