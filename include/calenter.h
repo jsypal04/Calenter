@@ -107,23 +107,9 @@ bool verify_date(char* date);
 
 char* stringify_datetime(struct tm dt, size_t* len);
 
-char* dump_ui_state(Schedule schedule_widget, Calendar calendar_widget);
+char* dump_ui_state(Window** windows, int active_window_id);
 
 pthread_t start_state_broadcast();
-
-// /**
-//  * Channel functions
-//  * */
-//
-// typedef struct channel Channel;
-//
-// void channel_send(Channel* channel, char* message);
-//
-// char* channel_receive(Channel* channel);
-//
-// void init_channel(Channel* channel);
-//
-// void destroy_channel(Channel* channel);
 
 /*
  * Notificatin Daemon functions

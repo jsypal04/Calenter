@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "calenter.h"
-#include "debug.h"
 #include "array.h"
 
 extern Window* windows[NUM_WINDOWS];

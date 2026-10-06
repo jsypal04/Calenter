@@ -6,7 +6,6 @@
  * */
 
 #include <semaphore.h>
-#include <math.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -24,27 +23,6 @@
 
 Channel_C* broadcast_channel;
 
-// #define CHANNEL_BUFFER_CAP 8
-//
-// typedef struct channel {
-//     char buffer[CHANNEL_BUFFER_CAP];
-//     bool last_chunk;
-//     sem_t semaphore;
-//     pthread_mutex_t mutex;
-// } Channel;
-//
-// Channel broadcast_channel = {0};
-//
-// void init_channel(Channel* channel) {
-//     bzero(channel->buffer, CHANNEL_BUFFER_CAP);
-//     channel->last_chunk = false;
-//     sem_init(&channel->semaphore, 0, 0);
-// }
-//
-// void destroy_channel(Channel* channel) {
-//     sem_destroy(&channel->semaphore);
-// }
-
 /**
  * Doubles the size of the buffer passed
  * */
@@ -56,81 +34,6 @@ void expand_buffer(char* buffer, size_t buffer_len, size_t buffer_cap) {
     free(buffer);
     buffer = new_buffer;
 }
-
-// void channel_send(Channel* channel, char* message) {
-//     if (strlen(message) < CHANNEL_BUFFER_CAP) {
-//         pthread_mutex_lock(&channel->mutex);
-//         strncpy(channel->buffer, message, CHANNEL_BUFFER_CAP - 1);
-//         channel->last_chunk = true;
-//         pthread_mutex_unlock(&channel->mutex);
-//         sem_post(&channel->semaphore);
-//         return;
-//     }
-//
-//     double num_chunks = ceil((double) strlen(message) / (CHANNEL_BUFFER_CAP - 1));
-//     int chunk_number = 1;
-//
-//     for (int i = 0; i < strlen(message); i += CHANNEL_BUFFER_CAP - 1) {
-//         sem_wait(&channel->semaphore);
-//         char* chunk_start = message + i;
-//         pthread_mutex_lock(&channel->mutex);
-//         strncpy(channel->buffer, chunk_start, CHANNEL_BUFFER_CAP - 1);
-//
-//         if (chunk_number == num_chunks) {
-//             channel->last_chunk = true;
-//         } else {
-//             channel->last_chunk = false;
-//         }
-//
-//         // This should never happen but just in case, log it and correct the issue.
-//         if (channel->buffer[CHANNEL_BUFFER_CAP - 1] != '\0') {
-//             debug_log("WARNING: channel buffer is not null terminated. Inserting a null character.\n");
-//             channel->buffer[CHANNEL_BUFFER_CAP - 1] = '\0';
-//         }
-//         pthread_mutex_unlock(&channel->mutex);
-//
-//         sem_post(&channel->semaphore);
-//     }
-// }
-//
-//
-// char* channel_receive(Channel* channel) {
-//     size_t message_cap = CHANNEL_BUFFER_CAP;
-//     size_t message_len = 0;
-//     char* message = malloc(sizeof(char) * message_cap);
-//     bzero(message, message_cap);
-//
-//     while (true) {
-//         sem_wait(&channel->semaphore);
-//
-//         // receive the message chunk
-//         pthread_mutex_lock(&channel->mutex);
-//         size_t chunk_len = strlen(channel->buffer);
-//         if (message_len + chunk_len >= message_cap - 1)
-//             // Since this function doubles the message buffer and the message buffer
-//             // starts with the same capacity as the channel buffer I think we are
-//             // guarenteed that the next chunk will fit after one doubling.
-//             expand_buffer(message, message_len, message_cap);
-//
-// #undef printf
-//         printf("\nchunk = %s\n", channel->buffer);
-//
-//         strncpy(message + message_len, channel->buffer, message_cap - message_len - 1);
-//         message_len += strlen(channel->buffer);
-//
-//         bzero(channel->buffer, CHANNEL_BUFFER_CAP);
-//
-//         if (channel->last_chunk) {
-//             pthread_mutex_unlock(&channel->mutex);
-//             break;
-//         }
-//         pthread_mutex_unlock(&channel->mutex);
-//
-//         sem_post(&channel->semaphore);
-//     }
-//
-//     return message;
-// }
 
 
 char* dump_events(struct events events) {
@@ -172,7 +75,7 @@ char* dump_events(struct events events) {
     return buffer;
 }
 
-char* dump_ui_state(Schedule schedule_widget, Calendar calendar_widget) {
+char* dump_schedule_state(Schedule schedule_widget, bool active) {
     char date_buffer[16];
     bzero(date_buffer, 16);
 
@@ -180,16 +83,82 @@ char* dump_ui_state(Schedule schedule_widget, Calendar calendar_widget) {
 
     char* events_json = dump_events(schedule_widget.events); 
 
-    char* json_buffer = malloc(sizeof(char) * (strlen(events_json) + strlen(date_buffer) + 200));
+    size_t buff_len = strlen(events_json) + strlen(date_buffer) + 200;
+    char* json_buffer = malloc(sizeof(char) * buff_len);
+    bzero(json_buffer, buff_len);
     sprintf(
         json_buffer, 
-        "{\"schedule_widget\": {\"current_date\": \"%s\", \"selected_event\": %d, \"events\": %s}}", 
+        "\"schedule_widget\": {\"current_date\": \"%s\", \"selected_event\": %d, \"events\": %s, \"active\": %s}", 
         date_buffer,
         schedule_widget.selected_event,
-        events_json
+        events_json,
+        active ? "true" : "false"
     );
 
-    debug_log("%s\n", json_buffer);
+    free(events_json);
+    events_json = NULL;
+
+    return json_buffer;
+}
+
+char* dump_calendar_state(Calendar calendar_widget, bool active) {
+    char date_buffer[16];
+    bzero(date_buffer, 16);
+
+    format_calendartxt_date(date_buffer, calendar_widget.year,
+        calendar_widget.month, calendar_widget.selected_day
+    );
+
+    size_t buff_len = strlen(date_buffer) + 200;
+    char* json_buffer = malloc(sizeof(char) * buff_len);
+    bzero(json_buffer, buff_len);
+    sprintf(
+        json_buffer,
+        "\"calendar_widget\": {\"current_date\": \"%s\", \"active\": %s}",
+        date_buffer,
+        active ? "true" : "false"
+    );
+
+    return json_buffer;
+}
+
+char* dump_ui_state(Window** windows, int active_window_id) {
+    int sched_index = get_widget_index(windows[SCHEDULE_WIN], SCHEDULE);
+    int cal_index   = get_widget_index(windows[CALENDAR_WIN], CALENDAR);
+
+    Schedule schedule_widget = windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule;
+    Calendar calendar_widget = windows[CALENDAR_WIN]->widgets[cal_index].widget.calendar;
+
+    bool sched_active = false;
+    bool cal_active = false;
+
+    switch (active_window_id) {
+        case SCHEDULE_WIN:
+            sched_active = true;
+            break;
+        case CALENDAR_WIN:
+            cal_active = true;
+            break;
+    }
+
+    char* schedule_json = dump_schedule_state(schedule_widget, sched_active);
+    char* calendar_json = dump_calendar_state(calendar_widget, cal_active);
+
+    size_t buff_len = strlen(schedule_json) + strlen(calendar_json) + 200;
+    char* json_buffer = malloc(sizeof(char) * buff_len);
+    bzero(json_buffer, buff_len);
+
+    sprintf(
+        json_buffer, 
+        "{\"state\": {%s, %s}}",
+        schedule_json,
+        calendar_json
+    );
+    free(schedule_json);
+    free(calendar_json);
+
+    schedule_json = NULL;
+    calendar_json = NULL;
 
     return json_buffer;
 }

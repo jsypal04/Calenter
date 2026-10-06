@@ -145,9 +145,7 @@ int main() {
             break;
         }
 
-        int sched_index = get_widget_index(windows[SCHEDULE_WIN], SCHEDULE);
-        int cal_index = get_widget_index(windows[CALENDAR_WIN], CALENDAR);
-        char* state = dump_ui_state(windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule, windows[CALENDAR_WIN]->widgets[cal_index].widget.calendar);
+        char* state = dump_ui_state(windows, active_win->id);
         channel_send(broadcast_channel, state);
         free(state);
         state = NULL;
