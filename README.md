@@ -80,7 +80,7 @@ To add a new test module follow the steps below:
 
 > [!NOTE]
 > If the test module is a C++ file, make sure to wrap the `make_<module name>_tests`
-> function in a `exter "C"` block.
+> function in a `extern "C"` block.
 
 ## Feature List
 
