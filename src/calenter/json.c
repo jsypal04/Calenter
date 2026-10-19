@@ -5,7 +5,6 @@
  * socket. It has no functionality to parse json
  * */
 
-#include <semaphore.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -51,13 +50,13 @@ char* dump_events(struct events events) {
         }
 
         struct event event = events.events[i];
-        
+
         buffer[buffer_len] = '"';
         buffer_len++;
 
         format_time(buffer + buffer_len, event.datetime.tm_hour, event.datetime.tm_min);
         buffer_len += 5;
-        
+
         sprintf(buffer + buffer_len, " - ");
         buffer_len += 3;
 
@@ -81,14 +80,14 @@ char* dump_schedule_state(Schedule schedule_widget, bool active) {
 
     format_calendartxt_date(date_buffer, schedule_widget.year, schedule_widget.month, schedule_widget.day);
 
-    char* events_json = dump_events(schedule_widget.events); 
+    char* events_json = dump_events(schedule_widget.events);
 
     size_t buff_len = strlen(events_json) + strlen(date_buffer) + 200;
     char* json_buffer = malloc(sizeof(char) * buff_len);
     bzero(json_buffer, buff_len);
     sprintf(
-        json_buffer, 
-        "\"schedule_widget\": {\"current_date\": \"%s\", \"selected_event\": %d, \"events\": %s, \"active\": %s}", 
+        json_buffer,
+        "\"schedule_widget\": {\"current_date\": \"%s\", \"selected_event\": %d, \"events\": %s, \"active\": %s}",
         date_buffer,
         schedule_widget.selected_event,
         events_json,
@@ -118,47 +117,6 @@ char* dump_calendar_state(Calendar calendar_widget, bool active) {
         date_buffer,
         active ? "true" : "false"
     );
-
-    return json_buffer;
-}
-
-char* dump_ui_state(Window** windows, int active_window_id) {
-    int sched_index = get_widget_index(windows[SCHEDULE_WIN], SCHEDULE);
-    int cal_index   = get_widget_index(windows[CALENDAR_WIN], CALENDAR);
-
-    Schedule schedule_widget = windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule;
-    Calendar calendar_widget = windows[CALENDAR_WIN]->widgets[cal_index].widget.calendar;
-
-    bool sched_active = false;
-    bool cal_active = false;
-
-    switch (active_window_id) {
-        case SCHEDULE_WIN:
-            sched_active = true;
-            break;
-        case CALENDAR_WIN:
-            cal_active = true;
-            break;
-    }
-
-    char* schedule_json = dump_schedule_state(schedule_widget, sched_active);
-    char* calendar_json = dump_calendar_state(calendar_widget, cal_active);
-
-    size_t buff_len = strlen(schedule_json) + strlen(calendar_json) + 200;
-    char* json_buffer = malloc(sizeof(char) * buff_len);
-    bzero(json_buffer, buff_len);
-
-    sprintf(
-        json_buffer, 
-        "{\"state\": {%s, %s}}",
-        schedule_json,
-        calendar_json
-    );
-    free(schedule_json);
-    free(calendar_json);
-
-    schedule_json = NULL;
-    calendar_json = NULL;
 
     return json_buffer;
 }

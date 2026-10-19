@@ -1,4 +1,7 @@
 #include "array.h"
+#include "types.h"
+
+#include "../include/tests.h"
 
 int comp_ints(union element e) {
     return e.i;
@@ -15,10 +18,15 @@ int test_sort_reversed_ints() {
     }
 
     print_array(array);
-
+    printf("\n");
     sort(array, comp_ints);
-
     print_array(array);
+
+    for (int i = 0; i < array_len(array) - 1; i++) {
+        int ith = get_int(array, i);
+        int i_plus_1th = get_int(array, i + 1);
+        if (ith > i_plus_1th) return 1;
+    }
 
     return 0;
 }
@@ -66,8 +74,23 @@ int test_sort_BYxxx() {
     append_BYxxx_Rule(array, byminute);
 
     print_array(array);
+    printf("\n");
     sort(array, comp_byxxx);
     print_array(array);
 
+    for (int i = 0; i < array_len(array) - 1; i++) {
+        BYxxx_Rule ith = get_BYxxx_Rule(array, i);
+        BYxxx_Rule i_plus_1th = get_BYxxx_Rule(array, i + 1);
+        if (ith.type > i_plus_1th.type) return 1;
+    }
+
     return 0;
+}
+
+struct tests make_array_tests() {
+    struct tests tests = make_tests(10, "array_tests");
+    add_test(&tests, "test_sort_reversed_ints", test_sort_reversed_ints);
+    add_test(&tests, "test_sort_BYxxx", test_sort_BYxxx);
+
+    return tests;
 }

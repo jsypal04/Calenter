@@ -35,7 +35,7 @@ int update_calendartxt(char* ics_file);
 
 int main(int argc, char** argv) {
     Flags cli_flags = parse_cli_flags(&argc, argv);
-    
+
     if (cli_flags.calendartxt_path != NULL) {
         set_calendar_path(cli_flags.calendartxt_path);
     }
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
             return retval;
         }
 
-        
+
     } else if (strcmp(argv[1], "update-calendar") == 0) {
         if (argc != 3) {
             printf("Usage: calenter-headless update-calendar path/to/calendar_file.ics\n");
@@ -181,9 +181,9 @@ Flags parse_cli_flags(int* argc, char** argv) {
             i++;
             continue;
         }
-        
+
         if (
-            strcmp(argv[i], "-r") == 0 || 
+            strcmp(argv[i], "-r") == 0 ||
             strcmp(argv[i], "--redirect-logs") == 0
         ) {
             cli_flags.redirect_logs = true;

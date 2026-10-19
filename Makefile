@@ -5,12 +5,12 @@ MAJOR = 0
 MINOR = 3
 PATCH = 1
 
-# TESTING = -DTESTING
-
 CC = gcc
-CFLAGS = -g -Wall -Iinclude $(shell pkg-config --cflags --libs glib-2.0 libnotify) $(TESTING)
-LDLIBS = -lncurses -lcurl -lm -pthread
+CFLAGS = -g -Wall -Iinclude $(shell pkg-config --cflags --libs glib-2.0 libnotify)
+LDLIBS = -lncurses -lcurl -lm -pthread -lssl -lcrypto -lboost_url -lboost_json
 BUILD_DIR = build
+
+TEST_LOG_FILE = logs/test_run.log
 
 CXX = g++
 CXXFLAGS = $(CFLAGS)
@@ -24,10 +24,13 @@ BIN_C_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(BIN_C_FILES))
 BIN_CPP_OBJ_FILES := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(BIN_CPP_FILES))
 BIN_OBJ_FILES := $(BIN_C_OBJ_FILES)$(BIN_CPP_OBJ_FILES)
 
-TEST_SRC_FILES := $(shell find tests -type f -name "*.c")
-TEST_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(TEST_SRC_FILES))
+TEST_C_FILES := $(shell find tests -type f -name "*.c")
+TEST_CPP_FILES := $(shell find tests -type f -name "*.cpp")
+TEST_C_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(TEST_C_FILES))
+TEST_CPP_OBJ_FILES := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(TEST_CPP_FILES))
+TEST_OBJ_FILES := $(TEST_C_OBJ_FILES) $(TEST_CPP_OBJ_FILES) $(filter-out $(BUILD_DIR)/%/main.o,$(BIN_OBJ_FILES))
 
-HEADLESS_OBJ_FILES := $(BUILD_DIR)/src/headless/calenter-headless.o $(BUILD_DIR)/src/calenter/json.o $(BUILD_DIR)/src/calenter/cpp/channel.o
+HEADLESS_OBJ_FILES := $(BUILD_DIR)/src/headless/calenter-headless.o $(BUILD_DIR)/src/calenter/json.o $(BUILD_DIR)/src/calenter/cpp/channel.o $(BUILD_DIR)/src/calenter/cpp/oauth.o
 
 LIB_NAME      = libcalenter.so
 LIB_REAL_NAME = $(LIB_NAME).$(MAJOR).$(MINOR).$(PATCH)
@@ -38,13 +41,15 @@ BIN  = $(BUILD_DIR)/calenter
 HEADLESS = $(BUILD_DIR)/calenter-headless
 TEST_BIN = $(BUILD_DIR)/calenter-tests
 
-all: $(BIN) $(LIB) $(HEADLESS)
+all: $(BIN) $(LIB) $(HEADLESS) $(TEST_BIN)
 
 library: $(LIB)
 
 binary: $(BIN)
 
 headless: $(HEADLESS)
+
+test-bin: $(TEST_BIN)
 
 test: $(TEST_BIN)
 	@LD_LIBRARY_PATH=$(PWD)/$(BUILD_DIR) \
@@ -78,41 +83,55 @@ $(BIN): $(LIB) $(BIN_OBJ_FILES)
 	    -L$(BUILD_DIR) -lcalenter -o $(BIN)
 	@echo -e "\e[32mBuilt target $(BIN)\e[0m"
 
-$(TEST_BIN): $(LIB) $(BIN_OBJ_FILES) $(TEST_OBJ_FILES)
+$(TEST_BIN): $(LIB) $(TEST_OBJ_FILES)
 	@echo -e "Linking C executable $(TEST_BIN)"
-	@$(CXX) $(CXXFLAGS) $(LDLIBS) $(BIN_OBJ_FILES) $(TEST_OBJ_FILES) \
+	@$(CXX) $(CXXFLAGS) $(LDLIBS) $(TEST_OBJ_FILES) \
 		-L$(BUILD_DIR) -lcalenter -o $(TEST_BIN)
 	@echo -e "\e[32mBuilt target $(TEST_BIN)\e[0m"
-	
+
 
 $(BUILD_DIR)/src/calenter/%.o: src/calenter/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS) -c $< -o $@
 	@echo -e "Compiling C object $@"
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/src/calenter/cpp/%.o: src/calenter/cpp/%.cpp | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
+	@echo -e "Compiling CXX object $@"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 
 $(BUILD_DIR)/src/common/%.o: src/common/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS) -fPIC -c $< -o $@
 	@echo -e "Compiling C object $@"
+	@$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
 $(BUILD_DIR)/tests/%.o: tests/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS) -c $< -o $@
 	@echo -e "Compiling C object $@"
+	@$(CC) $(CFLAGS) -Itests/include -c $< -o $@
+
+$(BUILD_DIR)/tests/%.o: tests/%.cpp | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	@echo -e "Compiling CXX object $@"
+	@$(CXX) $(CXXFLAGS) -Itests/include -c $< -o $@
 
 $(BUILD_DIR)/src/headless/%.o: src/headless/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS) -c $< -o $@
 	@echo -e "Compiling C object $@"
-	
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/src/headless/%.o: src/headless/%.cpp | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	@echo -e "Compiling CXX object $@"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
+
+$(TEST_LOG_FILE):
+	@touch $(TEST_LOG_FILE)
 
 $(HEADLESS): $(LIB) $(HEADLESS_OBJ_FILES)
 	@echo -e "Linking C executable $@"
@@ -140,4 +159,4 @@ install: $(BIN)
 	echo "Installing binary to $(APP_HOME)/.local/bin"
 	cp $(BIN) $(APP_HOME)/.local/bin
 
-.PHONY: all library binary run clean install headless run-headless
+.PHONY: all library binary run clean install headless run-headless test test-bin

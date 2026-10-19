@@ -7,6 +7,7 @@
 #include "calenter.h"
 #include "array.h"
 #include "calendartxt.h"
+#include "json.h"
 
 // TODO: Handle leap years.
 int get_days_in_month(int month) {
@@ -154,4 +155,45 @@ Array* split_line(char* line, int container_width) {
     append_string(lines, line);
 
     return lines;
+}
+
+char* dump_ui_state(Window** windows, int active_window_id) {
+    int sched_index = get_widget_index(windows[SCHEDULE_WIN], SCHEDULE);
+    int cal_index   = get_widget_index(windows[CALENDAR_WIN], CALENDAR);
+
+    Schedule schedule_widget = windows[SCHEDULE_WIN]->widgets[sched_index].widget.schedule;
+    Calendar calendar_widget = windows[CALENDAR_WIN]->widgets[cal_index].widget.calendar;
+
+    bool sched_active = false;
+    bool cal_active = false;
+
+    switch (active_window_id) {
+        case SCHEDULE_WIN:
+            sched_active = true;
+            break;
+        case CALENDAR_WIN:
+            cal_active = true;
+            break;
+    }
+
+    char* schedule_json = dump_schedule_state(schedule_widget, sched_active);
+    char* calendar_json = dump_calendar_state(calendar_widget, cal_active);
+
+    size_t buff_len = strlen(schedule_json) + strlen(calendar_json) + 200;
+    char* json_buffer = malloc(sizeof(char) * buff_len);
+    bzero(json_buffer, buff_len);
+
+    sprintf(
+        json_buffer,
+        "{\"state\": {%s, %s}}",
+        schedule_json,
+        calendar_json
+    );
+    free(schedule_json);
+    free(calendar_json);
+
+    schedule_json = NULL;
+    calendar_json = NULL;
+
+    return json_buffer;
 }

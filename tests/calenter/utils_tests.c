@@ -3,11 +3,8 @@
 
 #include "calenter.h"
 #include "array.h"
+#include "../include/tests.h"
 
-typedef struct test {
-    char* name;
-    int (*test_fn)();
-} Test;
 
 int test_split_line() {
     char line[256] = "hello world!";
@@ -16,15 +13,14 @@ int test_split_line() {
     Array* lines = split_line(line, container_width);
 
     if (array_len(lines) != 2) {
-        fprintf(stderr, "test_split_line failed: Expected 2 lines, got %d\n", array_len(lines));
+        printf("test_split_line failed: Expected 2 lines, got %d\n", array_len(lines));
         return 1;
     }
 
     for (int i = 0; i < array_len(lines); i++) {
         char* line = get_string(lines, i);
         if (strlen(line) >= container_width) {
-            fprintf(
-                stderr, 
+            printf(
                 "test_split_line failed: Expected line length to be less than container width. Line length: %zu, container width: %d\n", 
                 strlen(line), 
                 container_width
@@ -35,13 +31,13 @@ int test_split_line() {
 
     char* line1 = get_string(lines, 0);
     if (strcmp(line1, "hello") != 0) {
-        fprintf(stderr, "test_split_line failed: Expected line 1 to be 'hello', got '%s'\n", line1);
+        printf("test_split_line failed: Expected line 1 to be 'hello', got '%s'\n", line1);
         return 1;
     }
 
     char* line2 = get_string(lines, 1);
     if (strcmp(line2, "world!") != 0) {
-        fprintf(stderr, "test_split_line failed: Expected line 2 to be 'world!', got '%s'\n", line2);
+        printf("test_split_line failed: Expected line 2 to be 'world!', got '%s'\n", line2);
         return 1;
     }
 
@@ -60,14 +56,18 @@ int test_split_line_no_spaces() {
     print_array(lines);
 
     if (array_len(lines) != 2) {
-        fprintf(stderr, "test_split_line_no_spaces failed: Expected 2 lines, got %d\n", array_len(lines));
+        printf("test_split_line_no_spaces failed: Expected 2 lines, got %d\n", array_len(lines));
+        return 1;
     }
 
 
     return 0;
 }
 
-void run_utils_tests() {
-    test_split_line();
-    test_split_line_no_spaces();
+
+struct tests make_calenter_utils_tests() {
+    struct tests tests = make_tests(10, "calenter_utils_tests");
+    add_test(&tests, "test_split_line_no_spaces", test_split_line_no_spaces);
+    add_test(&tests, "test_split_line", test_split_line);
+    return tests;
 }

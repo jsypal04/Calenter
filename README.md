@@ -11,9 +11,10 @@ git clone https://github.com/jsypal04/Calenter.git
 make
 ```
 
-This command produces three artifacts: `build/calenter`, `build/calenter-headless`,
+This command produces three artifacts: `build/calenter`, `build/calenter-headless`, `build/calenter-tests`,
 and `build/libcalenter.so`. The first artifact is the app binary. The seconds artifact is a headless version of the app that is basically an entrypoint for 
-libcalenter (for debugging purposes). The third artifact is a shared library containing the backend code (e.g., reading/writing to calendar.txt,
+libcalenter (for debugging purposes). The third artifact is the test suite. 
+The fourth artifact is a shared library containing the backend code (e.g., reading/writing to calendar.txt,
 parsing ics files, a custom array type, etc.).
 
 To run the app without installing it use the following command.
@@ -24,7 +25,7 @@ This sets the library paths properly before starting the app which prevents miss
 
 ## Configuration
 
-You may create a config file at `~/.config/calenter/config.ini`. It uses the
+You may create a config file at `~/.config/calenter/config.ini`.
 
 Currently, there are only options to add a remote calendar and to configure notification settings.
 You can add any number of remote urls and calendar.txt will be synced with all of them.
@@ -52,16 +53,33 @@ sudo make install
 
 ## Test Suite
 
-I have begun writing tests. To run the test suite, uncomment the `TESTING`
-variable in the Makefile then run the following commands.
+All tests are located in the `tests` directory. The one top level source file, 
+`tests.c` collects and executes the test, handling stdout capture and (eventually)
+stdout restoration when tests fail. Currently, the stdout for each test is saved
+in `logs/test_run.log`. In order to run the test suite, execute the following command:
 
 ```bash
-make clean
 make test
 ```
-The `TESTING` variable is necessary because I do this janky thing where I disable
-main function in calenter.c and enable the main function in test.c. The `TESTING`
-variable is the flag to do that.
+
+### Adding tests
+
+To add a new test module follow the steps below:
+
+1. Add a C or C++ file under a suitable directory in the tests source tree.
+2. Write your test functions in that file. All test functions should accept no
+   arguments and return an int with 0 indicating success and non zero indicating
+   failure.
+3. Write a function to that returns the testing structure for that module. I have
+   been using the nameing convention `make_<module name>_tests`. This function
+   should accept no arguments and should return a `struct tests` type. To make
+   the tests structure, use the `make_tests` and `add_test` helper functions defined
+   in `tests.h`.
+4. Add a forward declaration for your make tests function. Call the functions to
+   make the tests, run the tests, and destroy the tests in main.
+
+> **Note:** If the test module is a C++ file, make sure to wrap the `make_<module name>_tests`
+function in a `exter "C"` block.
 
 ## Feature List
 
