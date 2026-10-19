@@ -78,8 +78,8 @@ To add a new test module follow the steps below:
 4. Add a forward declaration for your make tests function. Call the functions to
    make the tests, run the tests, and destroy the tests in main.
 
-> **Note:** If the test module is a C++ file, make sure to wrap the `make_<module name>_tests`
-function in a `exter "C"` block.
+> [!NOTE] If the test module is a C++ file, make sure to wrap the `make_<module name>_tests`
+> function in a `exter "C"` block.
 
 ## Feature List
 
