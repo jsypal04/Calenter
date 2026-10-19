@@ -55,8 +55,7 @@ class OAuth {
         boost::urls::url oauth2_token_ex_url_;
 
         std::string client_id_;
-        // TODO:: DO NOT COMMIT THIS!!!!!!
-        std::string client_secret_ = "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";
+        std::string client_secret_ = "";
         std::string scope_;
         std::string redirect_uri_;
         std::string response_type_ = "code";
