@@ -13,6 +13,10 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "types.h"
 
 
@@ -70,5 +74,9 @@ void sort(Array* array, int (*comparator)(union element));
 void print_array(Array* array);
 
 Array* array_dup(Array* array);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -10,4 +10,4 @@ calendar*.txt
 codebook.toml
 *.ics
 compile_commands.json
-client_secret.txt
+client_config.json

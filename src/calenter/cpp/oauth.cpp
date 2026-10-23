@@ -1,7 +1,11 @@
+#include <chrono>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <ios>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -19,15 +23,68 @@
 #include <boost/json.hpp>
 
 #include "oauth.hpp"
+#include "array.h"
+#include "http.hpp"
+#include "oauth.h"
 
 #define HTTPS_PORT "443"
 
 namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace http = beast::http;
-namespace ssl = net::ssl;
 namespace json = boost::json;
 using tcp = net::ip::tcp;
+
+
+typedef struct oauth_c {
+    OAuth oc;
+
+    oauth_c(HttpClient& client, CredentialStore& cred_store)
+        : oc(client, cred_store) {}
+} OAuth_C;
+
+// C compatible API for OAuth
+extern "C" {
+
+    OAuth_C* new_oauth_client() {
+        HttpClient client;
+        CredentialStore cred_store;
+        OAuth_C* oc = new OAuth_C(client, cred_store);
+        return oc;
+    }
+
+    // TODO: When the oauth authentication failes, calling this function
+    // causes a SIGABRT
+    void destroy_oauth_client(OAuth_C* oc) {
+        delete oc;
+    }
+
+    struct oauth2_tokens oauth_get_credentials(OAuth_C* oc) {
+        return oc->oc.get_credentials();
+    }
+
+    int oauth_authenticate(OAuth_C* oc, struct oauth2_tokens* tokens) {
+        try {
+            *tokens = oc->oc.authenticate();
+            return 0;
+        } catch (std::exception& e) {
+            return 1;
+        }
+    }
+
+    void destroy_oauth2_tokens(struct oauth2_tokens* tokens) {
+        if (tokens->access_token != NULL)
+            free(tokens->access_token);
+        if (tokens->refresh_token != NULL)
+            free(tokens->refresh_token);
+        if (tokens->token_type != NULL)
+            free(tokens->token_type);
+        if (tokens->scope != NULL)
+            free_array(tokens->scope); 
+
+        memset(tokens, 0, sizeof(struct oauth2_tokens));
+    }
+}
 
 Pkce::Pkce() {
     key_ = gen_random_key(64);
@@ -115,79 +172,15 @@ std::string Pkce::to_ascii(std::string binary) {
     return encoded_binary;
 }
 
-OAuth::OAuth(std::string credentials_path) : ioc_(), listener_(ioc_) {
-    credentials_path_ = credentials_path;
-
-    boost::urls::url_view oauth2_base_url = "https://accounts.google.com/o/oauth2/v2/auth";
-    oauth2_server_url_ = boost::urls::url(oauth2_base_url);
-
-    boost::urls::url_view oauth2_base_token_url = "https://oauth2.googleapis.com/token";
-    oauth2_token_ex_url_ = boost::urls::url(oauth2_base_token_url);
-
-    client_id_ = "978982380444-r4etnkc05or6rgusmu1cdhv35s5ru840.apps.googleusercontent.com";
-
-    scope_ = "https://www.googleapis.com/auth/calendar.events";
-
-    redirect_addr_ = "127.0.0.1";
-
-    tokens_future_ = tokens_promise_.get_future();
+CredentialStore::CredentialStore() {
+    path_ = "/home/jsypal/.config/calenter/credentials.json";
 }
 
-OAuth::OAuth(
-    std::string credentials_path,
-    std::string oauth2_base_url,
-    std::string client_id,
-    std::string scope
-) : ioc_(), listener_(ioc_) {
-    credentials_path_ = credentials_path;
-
-    oauth2_server_url_ = boost::urls::url(oauth2_base_url);
-    client_id_ = client_id;
-    scope_ = scope;
-
-    redirect_uri_ = "127.0.0.1";
-
-    tokens_future_ = tokens_promise_.get_future();
-}
-
-void OAuth::store_credentials(struct oauth2_resp credentials) {
-    std::stringstream scopes;
-
-    // TODO: Fix the signedness warnings
-    int num_scopes = credentials.scope.size();
-    for (int i = 0; i < num_scopes; i++) {
-        scopes << credentials.scope[i];
-        if (i < num_scopes - 1) {
-            scopes << " ";
-        }
-    }
-
-    json::value jv = {
-        {"access_token", credentials.access_token},
-        {"expires_in", credentials.expires_in},
-        {"token_type", credentials.token_type},
-        {"scope", scopes.str()},
-        {"refresh_token", credentials.refresh_token}
-    };
-
-    std::string credentials_json = json::serialize(jv);
-    store_credentials(credentials_json);
-}
-
-void OAuth::store_credentials(std::string credentials_json) {
-    std::ofstream credentials_stream(credentials_path_);
-
-    if (!credentials_stream.is_open())
-        throw std::runtime_error("Failed to open credentials file");
-
-    credentials_stream << credentials_json;
-}
-
-struct oauth2_resp OAuth::get_credentials() {
-    if (!std::filesystem::exists(credentials_path_))
+oauth2_tokens CredentialStore::get() {
+    if (!std::filesystem::exists(path_))
         throw std::runtime_error("Credentials file does not exist");
 
-    std::ifstream credentials_stream(credentials_path_);
+    std::ifstream credentials_stream(path_);
 
     if (!credentials_stream.is_open())
         throw std::runtime_error("Failed to open credentials file");
@@ -201,7 +194,101 @@ struct oauth2_resp OAuth::get_credentials() {
     return parse_oauth2_resp(parsed_credentials);
 }
 
-struct oauth2_resp OAuth::authenticate() {
+void CredentialStore::store(struct oauth2_tokens credentials) {
+    std::stringstream scopes;
+
+    int num_scopes = array_len(credentials.scope);
+    for (int i = 0; i < num_scopes; i++) {
+        scopes << get_string(credentials.scope, i);
+        if (i < num_scopes - 1) {
+            scopes << " ";
+        }
+    }
+
+    json::value jv = {
+        {"access_token", credentials.access_token},
+        {"expires_at", credentials.expires_at},
+        {"token_type", credentials.token_type},
+        {"scope", scopes.str()},
+        {"refresh_token", credentials.refresh_token}
+    };
+
+    std::string credentials_json = json::serialize(jv);
+    store(credentials_json);
+}
+
+void CredentialStore::store(std::string tokens) {
+    std::ofstream credentials_stream(path_);
+
+    if (!credentials_stream.is_open())
+        throw std::runtime_error("Failed to open credentials file");
+
+    credentials_stream << tokens;
+}
+
+struct oauth2_tokens CredentialStore::parse_oauth2_resp(json::value body) {
+    struct oauth2_tokens tokens = {0};
+
+    auto now = std::chrono::system_clock::now().time_since_epoch();
+    auto now_sec = std::chrono::duration_cast<std::chrono::seconds>(now).count();
+
+    tokens.access_token = strdup(body.at("access_token").as_string().c_str());
+    tokens.expires_at = body.at("expires_in").as_int64() + now_sec;
+    tokens.token_type = strdup(body.at("token_type").as_string().c_str());
+    tokens.refresh_token = strdup(body.at("refresh_token").as_string().c_str());
+
+    auto scopes = body.at("scope").as_string();
+    int start = 0;
+    int num_scopes = 0;
+    for (auto ch : scopes) {
+        if (ch != ' ') continue;
+        num_scopes++;
+    }
+    num_scopes++;
+
+    tokens.scope = new_array(num_scopes, STRING);
+
+    for (int i = 0; i < num_scopes; i++) {
+        if (scopes[i] != ' ') continue;
+        std::string scope = scopes.subview(start, i - start);
+        char* tmp = strdup(scope.c_str());
+        append_string(tokens.scope, tmp);
+        free(tmp);
+        tmp = NULL;
+        start = i + 1;
+    }
+
+    return tokens;
+}
+
+OAuth::OAuth(
+    HttpClient& client, 
+    CredentialStore& cred_store
+) : http_client_(client), cred_store_(cred_store), ioc_(), listener_(ioc_) {
+
+    boost::urls::url_view oauth2_base_url = "https://accounts.google.com/o/oauth2/v2/auth";
+    oauth2_server_url_ = boost::urls::url(oauth2_base_url);
+
+    boost::urls::url_view oauth2_base_token_url = "https://oauth2.googleapis.com/token";
+    oauth2_token_ex_url_ = boost::urls::url(oauth2_base_token_url);
+
+    // These macros are defined at compile time.
+    client_id_     = CLIENT_ID;
+    client_secret_ = CLIENT_SECRET;
+
+    scope_ = "https://www.googleapis.com/auth/calendar.events";
+
+    redirect_addr_ = "127.0.0.1";
+
+    tokens_future_ = tokens_promise_.get_future();
+}
+
+struct oauth2_tokens OAuth::get_credentials() {
+    return cred_store_.get();
+}
+
+// TODO: The loopback server should timeout after a certain point.
+struct oauth2_tokens OAuth::authenticate() {
     start_loopback_server();
     make_query_params();
 
@@ -210,9 +297,22 @@ struct oauth2_resp OAuth::authenticate() {
 
     std::system(command.str().c_str());
 
-    loopback_thread_.join();
+    struct oauth2_tokens tokens = {0};
+    auto start = std::chrono::system_clock::now();
 
-    struct oauth2_resp tokens = tokens_future_.get();
+    while (true) {
+        auto now = std::chrono::system_clock::now();
+        auto status = tokens_future_.wait_for(std::chrono::seconds(0));
+        if (status == std::future_status::ready) {
+            tokens = tokens_future_.get();
+            break;
+        } else if (now - start >= std::chrono::seconds(5)) {
+            // 5 minute timeout
+            throw std::runtime_error("Oauth redirect server timed out.");  
+        } else {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
 
     if (oauth2_error_occured_) {
         throw std::runtime_error("Failed to authenticate with oauth.");
@@ -243,65 +343,66 @@ void OAuth::start_loopback_server() {
 }
 
 void OAuth::loopback_listener_thread() {
+    tcp::socket socket(ioc_);
+    listener_.accept(socket);
+
     try {
-        tcp::socket socket(ioc_);
+        socket = handle_loopback_connection(std::move(socket));
 
-        listener_.accept(socket);
+        http_client_.get(oauth2_token_ex_url_);
+        http_client_.header(
+            http::field::content_type, 
+            "application/x-www-form-urlencoded"
+        );
+        http_client_.body(make_token_ex_query_params());
+        auto res = http_client_.send();
 
-        handle_loopback_connection(std::move(socket));
+        std::cout << res << std::endl;
 
-        http::request<http::string_body> req{
-            http::verb::post,
-            oauth2_token_ex_url_.encoded_path(),
+        if (!HttpClient::is_success(res)) {
+            throw std::runtime_error("Token exchange did not return successfully.");
+        }
+        
+        cred_store_.store(res.body());
+        json::value res_body = json::parse(res.body());
+
+        struct oauth2_tokens tokens = CredentialStore::parse_oauth2_resp(res_body);
+
+        http::response<http::string_body> server_res(
+            http::status::ok,
             11
-        };
-
-        req.set(http::field::host, oauth2_token_ex_url_.host());
-        req.set(http::field::content_type, "application/x-www-form-urlencoded");
-
-        req.body() = make_token_ex_query_params();
-
-        std::string content_length = std::to_string(req.body().size());
-
-        req.set(http::field::content_length, content_length);
-
-        std::cout << req << std::endl << std::endl;
-
-        std::string res_body_raw = send_token_ex_request(req);
-        store_credentials(res_body_raw);
-        json::value res_body = json::parse(res_body_raw);
-
-        struct oauth2_resp tokens = parse_oauth2_resp(res_body);
+        );
+        server_res.set(
+            http::field::content_type,
+            "text/html; charset=utf-8"
+        );
+        server_res.body() = success_html();
+        server_res.prepare_payload();
+        http::write(socket, server_res);
+        
+        // Do set this at the end because we use the future to determine
+        // if the thread is still running.
         tokens_promise_.set_value(tokens);
     } catch (std::exception& e) {
-        struct oauth2_resp tokens = {0};
-        tokens_promise_.set_value(tokens);
+        http::response<http::string_body> server_res(
+            http::status::unauthorized,
+            11
+        );
+        server_res.set(
+            http::field::content_type, 
+            "text/html; charset=utf-8"
+        );
+        server_res.body() = failure_html();
+        server_res.prepare_payload();
+        http::write(socket, server_res);
+
         oauth2_error_occured_ = true;
+        struct oauth2_tokens tokens = {0};
+        tokens_promise_.set_value(tokens);
     }
 }
 
-struct oauth2_resp OAuth::parse_oauth2_resp(json::value body) {
-    struct oauth2_resp tokens = {0};
-
-    tokens.access_token = body.at("access_token").as_string();
-    tokens.expires_in = body.at("expires_in").as_int64();
-    tokens.token_type = body.at("token_type").as_string();
-    tokens.refresh_token = body.at("refresh_token").as_string();
-
-    auto scopes = body.at("scope").as_string();
-    int start = 0;
-    int num_scopes = scopes.size();
-    for (int i = 0; i < num_scopes; i++) {
-        if (scopes[i] != ' ') continue;
-        std::string scope = scopes.subview(start, i - start);
-        tokens.scope.push_back(scope);
-        start = i + 1;
-    }
-
-    return tokens;
-}
-
-void OAuth::handle_loopback_connection(tcp::socket conn) {
+tcp::socket OAuth::handle_loopback_connection(tcp::socket conn) {
     beast::flat_buffer buffer;
     http::request<http::string_body> req;
 
@@ -326,6 +427,7 @@ void OAuth::handle_loopback_connection(tcp::socket conn) {
         throw std::runtime_error("no 'code' url parameter");
 
     code_ = std::string((*it)->value);
+    return conn;
 }
 
 void OAuth::make_query_params() {
@@ -354,48 +456,64 @@ std::string OAuth::make_token_ex_query_params() {
     return param_stream.str();
 }
 
-// TODO: Wrap this in a try-catch block
-std::string OAuth::send_token_ex_request(http::request<http::string_body> req) {
-    auto host = oauth2_token_ex_url_.host();
-
-    net::io_context ioc;
-    
-    ssl::context ctx{ssl::context::tls_client};
-    ctx.set_default_verify_paths();
-
-    tcp::resolver resolver(ioc);
-    ssl::stream<tcp::socket> stream{ioc, ctx};
-
-    auto const results = resolver.resolve(host, HTTPS_PORT);
-
-    net::connect(stream.next_layer(), results);
-
-    stream.set_verify_mode(ssl::verify_peer);
-    stream.set_verify_callback(
-        ssl::host_name_verification(host)
-    );
-
-    if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str())) {
-        throw std::runtime_error("Failed to set SNI");
-    }
-
-    stream.handshake(ssl::stream_base::client);
-
-    http::write(stream, req);
-
-    beast::flat_buffer buffer;
-    http::response<http::string_body> res;
-
-    http::read(stream, buffer, res);
-
-    std::cout << res << std::endl;
-
-    return res.body();
+std::string OAuth::success_html() {
+    return R"(
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-family: sans-serif;
+                        background-color: black;
+                        color: white;
+                    }
+                    div {
+                        border: 2px solid green;
+                        border-radius: 5px;
+                        padding: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div>
+                    <h2>Authentication Successful.</h2>
+                    <p>You may close this window.</p>
+                </div>
+            </body>
+        </html>
+    )";
 }
 
-
-// int main() {
-//     OAuth oauth_client("/home/jsypal/.config/calenter/credentials.json");
-//
-//     oauth_client.authenticate();
-// }
+std::string OAuth::failure_html() {
+    return R"(
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-family: sans-serif;
+                        background-color: black;
+                        color: white;
+                    }
+                    div {
+                        border: 2px solid red;
+                        border-radius: 5px;
+                        padding: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div>
+                    <h2>Authentication Failed.</h2>
+                    <p>&#128577;</p>
+                </div>
+            </body>
+        </html>
+    )";
+}

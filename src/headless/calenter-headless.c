@@ -9,6 +9,7 @@
 #include "calenter.h"
 #include "channel.h"
 #include "config.h"
+#include "oauth.h"
 #include "sync.h"
 #include "array.h"
 #include "calendartxt.h"
@@ -134,8 +135,27 @@ int main(int argc, char** argv) {
 
         pthread_cancel(broadcaster);
         destroy_channel(broadcast_channel);
-    }
-    else {
+    } else if (strcmp(argv[1], "authenticate") == 0) {
+        char* home = getenv("HOME");
+        if (home == NULL) {
+            perror("Could not find the home directory.\n");
+            return 1;
+        }
+        char* path = malloc(sizeof(char) * (strlen(home) + strlen("/.config/calenter/credentials.json") + 32));
+        sprintf(path, "%s/.config/calenter/credentials.json", home);
+        OAuth_C* oc = new_oauth_client();
+
+        struct oauth2_tokens tokens = {0};
+        if (oauth_authenticate(oc, &tokens) != 0) {
+            // Failure
+            return 1;
+        }
+        destroy_oauth2_tokens(&tokens);
+
+        destroy_oauth_client(oc);
+        free(path);
+        path = NULL;
+    } else {
         print_usage();
     }
 

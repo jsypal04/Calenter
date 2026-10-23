@@ -5,8 +5,14 @@ MAJOR = 0
 MINOR = 3
 PATCH = 1
 
+# Oauth Client info
+CLIENT_ID     = $(shell cat client_config.json | jq .client_id)
+CLIENT_SECRET = $(shell cat client_config.json | jq .client_secret)
+
+MACROS = -D'CLIENT_ID=$(CLIENT_ID)' -D'CLIENT_SECRET=$(CLIENT_SECRET)'
+
 CC = gcc
-CFLAGS = -g -Wall -Iinclude $(shell pkg-config --cflags --libs glib-2.0 libnotify)
+CFLAGS = -g -Wall -Iinclude $(shell pkg-config --cflags --libs glib-2.0 libnotify) $(MACROS)
 LDLIBS = -lncurses -lcurl -lm -pthread -lssl -lcrypto -lboost_url -lboost_json
 BUILD_DIR = build
 
@@ -30,7 +36,7 @@ TEST_C_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(TEST_C_FILES))
 TEST_CPP_OBJ_FILES := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(TEST_CPP_FILES))
 TEST_OBJ_FILES := $(TEST_C_OBJ_FILES) $(TEST_CPP_OBJ_FILES) $(filter-out $(BUILD_DIR)/%/main.o,$(BIN_OBJ_FILES))
 
-HEADLESS_OBJ_FILES := $(BUILD_DIR)/src/headless/calenter-headless.o $(BUILD_DIR)/src/calenter/json.o $(BUILD_DIR)/src/calenter/cpp/channel.o $(BUILD_DIR)/src/calenter/cpp/oauth.o
+HEADLESS_OBJ_FILES := $(BUILD_DIR)/src/headless/calenter-headless.o $(BUILD_DIR)/src/calenter/json.o $(BUILD_DIR)/src/calenter/cpp/channel.o $(BUILD_DIR)/src/calenter/cpp/oauth.o $(BUILD_DIR)/src/calenter/cpp/http.o
 
 LIB_NAME      = libcalenter.so
 LIB_REAL_NAME = $(LIB_NAME).$(MAJOR).$(MINOR).$(PATCH)
