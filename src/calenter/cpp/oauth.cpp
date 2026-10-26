@@ -305,6 +305,7 @@ struct oauth2_tokens OAuth::refresh(std::string refresh_token) {
         http::field::content_type, 
         "application/x-www-form-urlencoded"
     );
+    http_client_.body(body);
     auto res = http_client_.send();
     auto res_body = json::parse(res.body());
     struct oauth2_tokens tokens = CredentialStore::parse_oauth2_resp(res_body);
