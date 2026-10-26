@@ -34,7 +34,7 @@ void HttpClient::get(std::string url) {
 void HttpClient::get(boost::urls::url url) {
     url_ = url;
     request_ = http::request<http::string_body>(
-        http::verb::post, 
+        http::verb::get, 
         url_.encoded_target(), 
         11
     ); 

@@ -7,6 +7,7 @@
 
 #include "tests.h"
 
+#define TEST_RUN_LOG "logs/test_run.log"
 
 struct tests make_array_tests();
 struct tests make_oauth_tests();
@@ -45,7 +46,7 @@ int add_test(struct tests* tests, const char* label, int (*run)()) {
 
 int redirect_stdout() {
     int original_fd = dup(STDOUT_FILENO);
-    if (freopen("logs/test_run.log", "a", stdout) == NULL) {
+    if (freopen(TEST_RUN_LOG, "a", stdout) == NULL) {
         perror("Failed to redirect stdout\n");
         _exit(EXIT_FAILURE);
     }
@@ -76,11 +77,11 @@ void run(struct tests* tests, char* test_label) {
 
         int fd = redirect_stdout();
         printf("BEGIN_TEST:%s\n", test.label);
-        int result = test.run();
+        test.result = test.run();
         printf("\nEND_TEST\n");
         restore_stdout(fd);
 
-        if (result != 0) {
+        if (test.result != 0) {
             printf("\033[31mX\033[0m");
             continue;
         }

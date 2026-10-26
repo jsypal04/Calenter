@@ -1,3 +1,4 @@
+#include <time.h>
 #include <libnotify/notify.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -9,7 +10,7 @@
 #include "calenter.h"
 #include "channel.h"
 #include "config.h"
-#include "oauth.h"
+#include "gcal.h"
 #include "sync.h"
 #include "array.h"
 #include "calendartxt.h"
@@ -27,6 +28,7 @@ typedef struct flags {
     char* calendartxt_path;
 } Flags;
 
+int handle_gcal_cmd(int argc, char** argv);
 void  print_usage();
 bool  is_valid_int(char* str);
 Flags parse_cli_flags(int* argc, char** argv);
@@ -135,26 +137,8 @@ int main(int argc, char** argv) {
 
         pthread_cancel(broadcaster);
         destroy_channel(broadcast_channel);
-    } else if (strcmp(argv[1], "authenticate") == 0) {
-        char* home = getenv("HOME");
-        if (home == NULL) {
-            perror("Could not find the home directory.\n");
-            return 1;
-        }
-        char* path = malloc(sizeof(char) * (strlen(home) + strlen("/.config/calenter/credentials.json") + 32));
-        sprintf(path, "%s/.config/calenter/credentials.json", home);
-        OAuth_C* oc = new_oauth_client();
-
-        struct oauth2_tokens tokens = {0};
-        if (oauth_authenticate(oc, &tokens) != 0) {
-            // Failure
-            return 1;
-        }
-        destroy_oauth2_tokens(&tokens);
-
-        destroy_oauth_client(oc);
-        free(path);
-        path = NULL;
+    } else if (strcmp(argv[1], "gcal") == 0) {
+        return handle_gcal_cmd(argc, argv);
     } else {
         print_usage();
     }
@@ -163,6 +147,46 @@ int main(int argc, char** argv) {
 
     notify_uninit();
 
+    return 0;
+}
+
+int handle_gcal_cmd(int argc, char** argv) {
+    if (argc < 3) return 1;
+
+    if (strcmp(argv[2], "auth") == 0) {
+        GCal* gcal = new_gcal_client();
+        gcal_authenticate(gcal);
+        destroy_gcal_client(gcal);
+    } else if (strcmp(argv[2], "list") == 0) {
+        GCal* gcal = new_gcal_client(); 
+
+        char* calendar_id = NULL;
+        if (gcal_get_calendar_id(gcal, &calendar_id) != 0) {
+            printf("Failed to get calendar id\n");
+            destroy_gcal_client(gcal);
+            return 1;
+        }
+
+        printf("calendar_id = %s\n", calendar_id);
+        free(calendar_id);
+        calendar_id = NULL;
+
+        destroy_gcal_client(gcal);
+    } else if (strcmp(argv[2], "insert") == 0) {
+        GCal* gcal = new_gcal_client();
+
+        time_t raw_time = time(NULL);
+
+        struct event event = {0};
+        event.summary = strdup("Test event");
+        // If hitting memory issues, check here.
+        event.datetime = *localtime(&raw_time);
+        event.all_day = false;
+
+        gcal_insert_event(gcal, event);
+
+        destroy_gcal_client(gcal);
+    }
     return 0;
 }
 

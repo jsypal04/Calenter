@@ -10,11 +10,22 @@
 #include <boost/asio/ip/tcp.hpp>
 
 #include "http.hpp"
-#include "oauth.h"
+#include "types.h"
 
 namespace net = boost::asio;
 namespace json = boost::json;
 using tcp = net::ip::tcp;
+
+struct oauth2_tokens {
+    char*   access_token;
+    long    expires_at; // Seconds since unix epoch
+    char*   token_type;
+    Array*  scope;
+    char*   refresh_token;
+};
+
+
+void destroy_oauth2_tokens(struct oauth2_tokens* tokens);
 
 
 class Pkce {
@@ -115,9 +126,31 @@ class OAuth {
         std::string failure_html();
 
     public:
+        OAuth();
         OAuth(HttpClient& client, CredentialStore& cred_store);
 
         struct oauth2_tokens get_credentials();
 
         struct oauth2_tokens authenticate();
+
+        struct oauth2_tokens refresh(std::string refresh_token);
+
+        std::string make_token_refresh_query_params(std::string refresh_token);
+
+        static long now();
+};
+
+/**
+ * OAuth Exception types
+ * */
+class ExpiredException : public std::exception {
+    private:
+        std::string message_;
+
+    public:
+        explicit ExpiredException(std::string msg) : message_(std::move(msg)) {}
+
+        const char* what() const noexcept override {
+            return message_.c_str();
+        }
 };

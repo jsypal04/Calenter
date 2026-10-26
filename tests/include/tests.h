@@ -12,9 +12,14 @@ extern "C" {
 #include <strings.h>
 
 
+#define PASSED 0
+#define FAILED 1
+
+
 struct test {
     char label[256];
     int (*run)();
+    int result;
 };
 
 struct tests {

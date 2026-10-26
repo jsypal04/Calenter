@@ -14,7 +14,7 @@ int test_split_line() {
 
     if (array_len(lines) != 2) {
         printf("test_split_line failed: Expected 2 lines, got %d\n", array_len(lines));
-        return 1;
+        return FAILED;
     }
 
     for (int i = 0; i < array_len(lines); i++) {
@@ -25,26 +25,26 @@ int test_split_line() {
                 strlen(line), 
                 container_width
             );
-            return 1;
+            return FAILED;
         }
     }
 
     char* line1 = get_string(lines, 0);
     if (strcmp(line1, "hello") != 0) {
         printf("test_split_line failed: Expected line 1 to be 'hello', got '%s'\n", line1);
-        return 1;
+        return FAILED;
     }
 
     char* line2 = get_string(lines, 1);
     if (strcmp(line2, "world!") != 0) {
         printf("test_split_line failed: Expected line 2 to be 'world!', got '%s'\n", line2);
-        return 1;
+        return FAILED;
     }
 
     free_array(lines);
 
     printf("test_split_line succeeded.\n");
-    return 0;
+    return PASSED;
 }
 
 int test_split_line_no_spaces() {
@@ -57,11 +57,11 @@ int test_split_line_no_spaces() {
 
     if (array_len(lines) != 2) {
         printf("test_split_line_no_spaces failed: Expected 2 lines, got %d\n", array_len(lines));
-        return 1;
+        return FAILED;
     }
 
 
-    return 0;
+    return PASSED;
 }
 
 

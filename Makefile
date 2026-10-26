@@ -36,7 +36,7 @@ TEST_C_OBJ_FILES := $(patsubst %.c, $(BUILD_DIR)/%.o, $(TEST_C_FILES))
 TEST_CPP_OBJ_FILES := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(TEST_CPP_FILES))
 TEST_OBJ_FILES := $(TEST_C_OBJ_FILES) $(TEST_CPP_OBJ_FILES) $(filter-out $(BUILD_DIR)/%/main.o,$(BIN_OBJ_FILES))
 
-HEADLESS_OBJ_FILES := $(BUILD_DIR)/src/headless/calenter-headless.o $(BUILD_DIR)/src/calenter/json.o $(BUILD_DIR)/src/calenter/cpp/channel.o $(BUILD_DIR)/src/calenter/cpp/oauth.o $(BUILD_DIR)/src/calenter/cpp/http.o
+HEADLESS_OBJ_FILES := $(BUILD_DIR)/src/headless/calenter-headless.o $(BUILD_DIR)/src/calenter/json.o $(BUILD_DIR)/src/calenter/cpp/channel.o $(BUILD_DIR)/src/calenter/cpp/oauth.o $(BUILD_DIR)/src/calenter/cpp/http.o $(BUILD_DIR)/src/calenter/cpp/gcal.o
 
 LIB_NAME      = libcalenter.so
 LIB_REAL_NAME = $(LIB_NAME).$(MAJOR).$(MINOR).$(PATCH)

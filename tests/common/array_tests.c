@@ -25,10 +25,10 @@ int test_sort_reversed_ints() {
     for (int i = 0; i < array_len(array) - 1; i++) {
         int ith = get_int(array, i);
         int i_plus_1th = get_int(array, i + 1);
-        if (ith > i_plus_1th) return 1;
+        if (ith > i_plus_1th) return FAILED;
     }
 
-    return 0;
+    return PASSED;
 }
 
 int test_sort_BYxxx() {
@@ -81,10 +81,10 @@ int test_sort_BYxxx() {
     for (int i = 0; i < array_len(array) - 1; i++) {
         BYxxx_Rule ith = get_BYxxx_Rule(array, i);
         BYxxx_Rule i_plus_1th = get_BYxxx_Rule(array, i + 1);
-        if (ith.type > i_plus_1th.type) return 1;
+        if (ith.type > i_plus_1th.type) return FAILED;
     }
 
-    return 0;
+    return PASSED;
 }
 
 struct tests make_array_tests() {

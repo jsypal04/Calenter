@@ -35,3 +35,19 @@ class HttpClient {
 
 };
 
+/**
+ * Http Exceptions
+ * */
+
+class HttpException : public std::exception {
+    private:
+        std::string msg_;
+
+    public:
+        HttpException(std::string msg) : msg_(std::move(msg)) {}
+
+        const char* what() const noexcept override {
+            return msg_.c_str();
+        }
+};
+
