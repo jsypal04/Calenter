@@ -56,11 +56,9 @@ Config read_config() {
             append_string(config.remote_urls, url);
             debug_log("remote_url: %s\n", url);
         } else if (strcmp(line.key, "enable_notifications") == 0) {
-            if (
-                strcmp(line.value, "true") == 0 ||
-                strcmp(line.value, "True") == 0 ||
-                strcmp(line.value, "TRUE") == 0
-            ) {
+            trim(line.value);
+            to_lower(line.value);
+            if (strcmp(line.value, "true") == 0) {
                 config.enable_notifications = true;
                 debug_log("enable_notifications: true\n");
             } else {
@@ -70,7 +68,17 @@ Config read_config() {
         } else if (strcmp(line.key, "notify_time") == 0) {
             config.notify_time = atoi(line.value);
             debug_log("notify_time: %d\n", config.notify_time);
-        } 
+        } else if (strcmp(line.key, "send_to_gcal") == 0) {
+            trim(line.value);
+            to_lower(line.value);
+            if (strcmp(line.value, "true") == 0) {
+                config.send_to_gcal = true;
+                debug_log("send_to_gcal: true\n");
+            } else {
+                config.send_to_gcal = false;
+                debug_log("send_to_gcal: true\n");
+            }
+        }
 
         free(line.value);
         line.value = NULL;

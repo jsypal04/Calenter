@@ -1,8 +1,9 @@
-// TODO: Evantually I should get rid of the headless binary at just include
-// parse cli flags here and excute headless depending on flags.
-
 int calenter_main();
+int cli_main(int argc, char** argv);
 
-int main() {
-    calenter_main();
+int main(int argc, char** argv) {
+    if (argc == 1)
+        return calenter_main();
+
+    return cli_main(argc, argv);
 }

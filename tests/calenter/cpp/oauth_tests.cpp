@@ -4,7 +4,6 @@
 
 #include "../../include/tests.h"
 #include "oauth.hpp"
-#include "array.h"
 
 namespace http = boost::beast::http;
 namespace json = boost::json;
@@ -26,8 +25,14 @@ class MockCredentialStore : public CredentialStore {
 
     struct oauth2_tokens get() {
         struct oauth2_tokens tokens;
+
+        std::string scope = "https://www.googleapis.com/auth/calendar";
         
-        // TODO: Add fake data
+        tokens.access_token = strdup("this_is_a_fake_token");
+        tokens.refresh_token = strdup("this_is_a_fake_token_too");
+        tokens.expires_at = 128967923;
+        tokens.token_type = strdup("Bearer");
+        tokens.scope.push_back(scope);
 
         return tokens;
     }
@@ -74,11 +79,14 @@ int test_parse_oauth2_resp_one_scope() {
         std::cout << "Wrong refresh_token: " << tokens.refresh_token << std::endl;
         return FAILED;
     }
-    if (array_len(tokens.scope) != 1) {
-        std::cout << "Expected 1 scope, found " << array_len(tokens.scope);
+    if (tokens.scope.size() != 1) {
+        std::cout << "Expected 1 scope, found " << tokens.scope.size();
         std::cout << std::endl;
         
-        print_array(tokens.scope);
+        for (auto s : tokens.scope) {
+            std::cout << s << " ";
+        }
+        std::cout << "\n";
 
         return FAILED;
     }
@@ -94,7 +102,7 @@ int test_parse_oauth2_resp_one_scope() {
 int test_authenticate_should_pass() {
     MockHttpClient http_client;
     MockCredentialStore cred_store;
-    OAuth oc(http_client, cred_store);
+    OAuth oc(http_client, cred_store, false);
     oc.authenticate();
     return PASSED;
 }

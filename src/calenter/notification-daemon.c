@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "calendartxt.h"
+#include "calenter.h"
 
 #define KILL        'k'
 #define NOTIFY_TIME 't'
@@ -93,10 +94,7 @@ void* worker(void* args) {
                 strcpy(msg + 100, msg_suffix);
             }
 
-            NotifyNotification* noti = notify_notification_new(
-                "Calenter", msg, "");
-            notify_notification_show(noti, NULL);
-            g_object_unref(G_OBJECT(noti));
+            send_notification(msg);
         }
 
         free_events(events);

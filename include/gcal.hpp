@@ -15,15 +15,16 @@ class GoogleCalendar {
         HttpClient http_client_;
         OAuth oc_; 
         std::optional<std::string> calendar_id_;
+        s_stream cout_;
+
+        void basic_setup();
 
     public:
         GoogleCalendar();
 
-        GoogleCalendar(OAuth& oc);
+        GoogleCalendar(bool silence);
 
-        ~GoogleCalendar() {
-            destroy_oauth2_tokens(&tokens_);
-        }
+        GoogleCalendar(OAuth& oc);
 
         /**
          * Checks if the gcal client instance is authenticated. If the 

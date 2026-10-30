@@ -5,11 +5,13 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 #include "types.h"
 
 typedef struct gcal GCal;
 
-GCal* new_gcal_client();
+GCal* new_gcal_client(bool silence);
 
 void destroy_gcal_client(GCal* gcal);
 

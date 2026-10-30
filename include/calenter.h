@@ -119,4 +119,6 @@ int notification_daemon_main();
 
 Array* split_line(char* line, int container_width);
 
+void send_notification(const char* msg);
+
 #endif

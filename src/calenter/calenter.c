@@ -16,6 +16,7 @@
 
 #include "calenter.h"
 #include "config.h"
+#include "gcal.h"
 #include "sync.h"
 #include "calendartxt.h"
 #include "array.h"
@@ -29,9 +30,10 @@ extern pthread_t syncer_thread;
 extern Channel_C* broadcast_channel;
 
 void start_notification_daemon(Config config);
-void handle_key_press(Window** active_win, int key);
+void handle_key_press(Window** active_win, int key, Config config);
 
 Window* windows[NUM_WINDOWS];
+GCal* gcal_client;
 
 int calenter_main() {
     headless = false;
@@ -51,6 +53,8 @@ int calenter_main() {
             close(fifo_fd);
         }
     }
+
+    gcal_client = new_gcal_client(true);
 
     Window* active_win = NULL;
     int active_win_index = 0;
@@ -122,13 +126,12 @@ int calenter_main() {
                 ) {
                     sync_calendar_wrapper(config.remote_urls);
                 } else {
-                    NotifyNotification* noti = notify_notification_new(
-                        "Calenter",
-                        "Unable to Sync. No remote URLs found.",
-                        ""
-                    );
-                    notify_notification_show(noti, NULL);
-                    g_object_unref(G_OBJECT(noti));
+                    send_notification("Unable to Sync. No remote URLs found.");
+                }
+                break;
+            case 'g':
+                if (gcal_authenticate(gcal_client) != 0) {
+                    send_notification("Failed to authenticate with Google");
                 }
                 break;
             case ERR:
@@ -137,7 +140,7 @@ int calenter_main() {
                 free_win(windows[1]);
                 endwin();
                 exit(1);
-            default: handle_key_press(&active_win, ch);
+            default: handle_key_press(&active_win, ch, config);
         };
 
         if (ch == 'q') {
@@ -159,6 +162,8 @@ int calenter_main() {
 
     pthread_cancel(broadcaster_thread);
     remove(SOCKET_PATH);
+
+    destroy_gcal_client(gcal_client);
 
     notify_uninit();
     curl_global_cleanup();
@@ -202,13 +207,7 @@ void start_notification_daemon(Config config) {
 
         int retval = notification_daemon_main();
         if (retval == -1) {
-            NotifyNotification* noti = notify_notification_new(
-                "Daemon Error",
-                "Failed to start the notification daemon",
-                ""
-            );
-            notify_notification_show(noti, NULL);
-            g_object_unref(G_OBJECT(noti));
+            send_notification("Failed to start the notification daemon");
             notify_uninit();
             _exit(EXIT_FAILURE);
         } else {
@@ -226,7 +225,7 @@ void start_notification_daemon(Config config) {
     }
 }
 
-void handle_key_press(Window** active_win_ref, int key) {
+void handle_key_press(Window** active_win_ref, int key, Config config) {
     Window* active_win = *active_win_ref;
 
     if (active_win->id == CALENDAR_WIN) {
@@ -429,6 +428,13 @@ void handle_key_press(Window** active_win_ref, int key) {
                     );
 
                 render_schedule(active_win, true);
+                if (config.send_to_gcal) {
+                    int r = gcal_insert_event(gcal_client, new_event);
+                    if (r != 0) {
+                        send_notification("Failed to send event to Google Calendar");
+                    }
+                }
+
                 break;
             }
         }

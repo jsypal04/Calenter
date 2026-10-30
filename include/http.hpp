@@ -8,6 +8,11 @@
 namespace http = boost::beast::http;
 namespace json = boost::json;
 
+/**
+ * This class is a thin wrapper around boost::beast to make one-off http
+ * requests simpler. It also handles SSL and TLS handshaking for https
+ * connections.
+ * */
 class HttpClient {
     private:
         http::request<http::string_body> request_;

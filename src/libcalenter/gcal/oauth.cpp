@@ -36,19 +36,6 @@ using tcp = net::ip::tcp;
 
 
 
-void destroy_oauth2_tokens(struct oauth2_tokens* tokens) {
-    if (tokens->access_token != NULL)
-        free(tokens->access_token);
-    if (tokens->refresh_token != NULL)
-        free(tokens->refresh_token);
-    if (tokens->token_type != NULL)
-        free(tokens->token_type);
-    if (tokens->scope != NULL)
-        free_array(tokens->scope); 
-
-    memset(tokens, 0, sizeof(struct oauth2_tokens));
-}
-
 Pkce::Pkce() {
     key_ = gen_random_key(64);
     hash_method_ = "plain";
@@ -160,9 +147,9 @@ oauth2_tokens CredentialStore::get() {
 void CredentialStore::store(struct oauth2_tokens credentials) {
     std::stringstream scopes;
 
-    int num_scopes = array_len(credentials.scope);
+    int num_scopes = credentials.scope.size();
     for (int i = 0; i < num_scopes; i++) {
-        scopes << std::string(get_string(credentials.scope, i));
+        scopes << credentials.scope[i];
         if (i < num_scopes - 1) {
             scopes << " ";
         }
@@ -190,7 +177,7 @@ void CredentialStore::store(std::string tokens) {
 }
 
 struct oauth2_tokens CredentialStore::parse_oauth2_resp(json::value body) {
-    struct oauth2_tokens tokens = {0};
+    struct oauth2_tokens tokens;
 
     auto now = OAuth::now();
 
@@ -207,27 +194,18 @@ struct oauth2_tokens CredentialStore::parse_oauth2_resp(json::value body) {
         tokens.refresh_token = strdup(body.at("refresh_token").as_string().c_str());
     } catch (std::exception& e) {
         // This should happend on refresh so ok to ignore i think.
-        tokens.refresh_token = NULL;
+        tokens.refresh_token = "";
     }
 
     auto scopes = body.at("scope").as_string();
     int start = 0;
-    int num_scopes = 0;
-    // TODO: Failes to parse the scopes when there is only one scope.
-    for (auto ch : scopes) {
-        if (ch != ' ') continue;
-        num_scopes++;
-    }
-    num_scopes++;
-
-    tokens.scope = new_array(num_scopes, STRING);
 
     size_t i;
     for (i = 0; i < scopes.size(); i++) {
         if (scopes[i] != ' ') continue;
         std::string scope = scopes.subview(start, i - start);
         char* tmp = strdup(scope.c_str());
-        append_string(tokens.scope, tmp);
+        tokens.scope.push_back(scope);
         free(tmp);
         tmp = NULL;
         start = i + 1;
@@ -235,40 +213,42 @@ struct oauth2_tokens CredentialStore::parse_oauth2_resp(json::value body) {
 
     std::string scope = scopes.subview(start, i - start);
     char* tmp = strdup(scope.c_str());
-    append_string(tokens.scope, tmp);
+    tokens.scope.push_back(tmp);
     free(tmp);
     tmp = NULL;
 
     return tokens;
 }
 
-OAuth::OAuth() : http_client_(), cred_store_(), ioc_(), listener_(ioc_) {
-    boost::urls::url_view oauth2_base_url = "https://accounts.google.com/o/oauth2/v2/auth";
-    oauth2_server_url_ = boost::urls::url(oauth2_base_url);
+OAuth::OAuth() : 
+    http_client_(), cred_store_(), ioc_(), listener_(ioc_), cout_() 
+{
+    basic_setup();
+}
 
-    boost::urls::url_view oauth2_base_token_url = "https://oauth2.googleapis.com/token";
-    oauth2_token_ex_url_ = boost::urls::url(oauth2_base_token_url);
-
-    // These macros are defined at compile time.
-    client_id_     = CLIENT_ID;
-    client_secret_ = CLIENT_SECRET;
-
-    scope_ = "https://www.googleapis.com/auth/calendar";
-
-    redirect_addr_ = "127.0.0.1";
-
-    tokens_future_ = tokens_promise_.get_future();
+OAuth::OAuth(bool silence) :
+    http_client_(), cred_store_(), ioc_(), listener_(ioc_), cout_(silence) 
+{
+    basic_setup();
 }
 
 OAuth::OAuth(
     HttpClient& client, 
-    CredentialStore& cred_store
-) : http_client_(client), cred_store_(cred_store), ioc_(), listener_(ioc_) {
+    CredentialStore& cred_store,
+    bool silence
+) : http_client_(client), cred_store_(cred_store), ioc_(), 
+    listener_(ioc_), cout_(silence) 
+{
+    basic_setup();
+}
 
-    boost::urls::url_view oauth2_base_url = "https://accounts.google.com/o/oauth2/v2/auth";
+void OAuth::basic_setup() {
+    boost::urls::url_view oauth2_base_url = 
+        "https://accounts.google.com/o/oauth2/v2/auth";
     oauth2_server_url_ = boost::urls::url(oauth2_base_url);
 
-    boost::urls::url_view oauth2_base_token_url = "https://oauth2.googleapis.com/token";
+    boost::urls::url_view oauth2_base_token_url = 
+        "https://oauth2.googleapis.com/token";
     oauth2_token_ex_url_ = boost::urls::url(oauth2_base_token_url);
 
     // These macros are defined at compile time.
@@ -291,7 +271,6 @@ struct oauth2_tokens OAuth::get_credentials() {
 
     try {
         struct oauth2_tokens new_tokens = refresh(tokens.refresh_token);
-        destroy_oauth2_tokens(&tokens);
         return new_tokens;
     } catch (std::exception& e) {
         throw ExpiredException("OAuth tokens have expired.");
@@ -307,14 +286,22 @@ struct oauth2_tokens OAuth::refresh(std::string refresh_token) {
     );
     http_client_.body(body);
     auto res = http_client_.send();
+    
+    if (!HttpClient::is_success(res)) {
+        std::stringstream msg;
+        msg << "Refresh token exchange request failed with code: ";
+        msg << res.result_int();
+        throw HttpException(msg.str());
+    }
+
     auto res_body = json::parse(res.body());
     struct oauth2_tokens tokens = CredentialStore::parse_oauth2_resp(res_body);
 
-    // This should be null because the google oauth call should not
+    // This should be empty because the google oauth call should not
     // return a refresh token when we refresh the access token. Checking
     // just in case :)
-    if (tokens.refresh_token == NULL)
-        tokens.refresh_token = strdup(refresh_token.c_str());
+    if (tokens.refresh_token == "")
+        tokens.refresh_token = refresh_token;
 
     return tokens;
 }
@@ -328,7 +315,7 @@ struct oauth2_tokens OAuth::authenticate() {
     command << " > /dev/null 2> /dev/null";
     std::system(command.str().c_str());
 
-    struct oauth2_tokens tokens = {0};
+    struct oauth2_tokens tokens;
     auto start = std::chrono::system_clock::now();
 
     while (true) {
@@ -339,14 +326,16 @@ struct oauth2_tokens OAuth::authenticate() {
             break;
         } else if (now - start >= std::chrono::seconds(300)) {
             // 5 minute timeout
-            throw std::runtime_error("Oauth redirect server timed out.");  
+            throw TimeoutException("Oauth redirect server timed out.");  
         } else {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
 
-    if (oauth2_error_occured_) {
-        throw std::runtime_error("Failed to authenticate with oauth.");
+    loopback_thread_.join();
+
+    if (error_) {
+        std::rethrow_exception(error_); 
     }
 
     return tokens;
@@ -368,7 +357,7 @@ void OAuth::start_loopback_server() {
     redirect_uri_stream << "http://" << redirect_addr_ << ":" << port;
     redirect_uri_ = redirect_uri_stream.str();
 
-    std::cout << redirect_uri_ << std::endl;
+    cout_ << redirect_uri_ << "\n";
 
     loopback_thread_ = std::thread(&OAuth::loopback_listener_thread, this);
 }
@@ -388,10 +377,10 @@ void OAuth::loopback_listener_thread() {
         http_client_.body(make_token_ex_query_params());
         auto res = http_client_.send();
 
-        std::cout << res << std::endl;
+        cout_ << res << "\n";
 
         if (!HttpClient::is_success(res)) {
-            throw std::runtime_error(
+            throw HttpException(
                 "Token exchange did not return successfully."
             );
         }
@@ -429,8 +418,8 @@ void OAuth::loopback_listener_thread() {
         server_res.prepare_payload();
         http::write(socket, server_res);
 
-        oauth2_error_occured_ = true;
-        struct oauth2_tokens tokens = {0};
+        error_ = std::current_exception();
+        struct oauth2_tokens tokens;
         tokens_promise_.set_value(tokens);
     }
 }
@@ -442,7 +431,7 @@ tcp::socket OAuth::handle_loopback_connection(tcp::socket conn) {
     beast::error_code ec;
     http::read(conn, buffer, req, ec);
 
-    std::cout << req << std::endl;
+    cout_ << req << "\n";
 
     auto target = req.target();
     
@@ -473,7 +462,7 @@ void OAuth::make_query_params() {
         "code_challenge_method", code_challenge_.hash_method()
     );
 
-    std::cout << oauth2_server_url_ << std::endl;
+    cout_ << oauth2_server_url_ << "\n";
 }
 
 std::string OAuth::make_token_refresh_query_params(std::string refresh_token) {

@@ -14,6 +14,7 @@ typedef struct _config {
     Array* remote_urls;
     bool enable_notifications;
     int  notify_time;
+    bool send_to_gcal;
 } Config;
 
 

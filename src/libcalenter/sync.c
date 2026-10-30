@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <curl/curl.h>
 #include <curl/easy.h>
+#include "calenter.h"
 #include "glib-object.h"
 
 #include "sync.h"
@@ -111,13 +112,7 @@ void* sync_calendar_curl(void* ptr) {
     }
 
 
-    NotifyNotification* noti = notify_notification_new(
-        "Sync Successful",
-        "Calenter successfully sank with your Google Calendar.",
-        ""
-    );
-    notify_notification_show(noti, NULL);
-    g_object_unref(G_OBJECT(noti));
+    send_notification("Calenter successfully sank with your Google Calendar.");
     curl_easy_cleanup(curl);
 
     free_array(remote_urls);

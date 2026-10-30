@@ -66,7 +66,7 @@ void set_active_window(Window** active_win, Window* window) {
 }
 
 void refresh_controls(int win_id) {
-    char common_ctrls[256] = "hH,j,k,lL  Nav | q  Quit | s  Sync";
+    char common_ctrls[256] = "hH,j,k,lL  Nav | q  Quit | s  Sync | g  Google Login";
 
     char controls_str[4096] = "\0";
 

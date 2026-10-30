@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <time.h>
 #include <libnotify/notify.h>
 #include <pthread.h>
@@ -17,14 +18,25 @@
 #include "ics.h"
 
 
-#define BIN "calenter-headless"
+#define BIN "calenter"
+
+#define REDIRECT_LOGS_MASK 0x01
+#define SILENCE_MASK       0x02
+
+#define REDIRECT_LOGS(bitset)       bitset  &  REDIRECT_LOGS_MASK
+#define SILENCE(bitset)             bitset  &  SILENCE_MASK
+
+#define SET_REDIRECT_LOGS(bitset)   bitset |=  REDIRECT_LOGS_MASK
+#define SET_SILENCE(bitset)         bitset |=  SILENCE_MASK
 
 extern bool headless;
 extern pthread_t syncer_thread;
 extern Channel_C* broadcast_channel;
 
 typedef struct flags {
-    bool redirect_logs;
+    // Does this need to be a bitset as opposed to a bunch of boolean
+    // struct fields? No. No it does not. :)
+    uint8_t bool_flags;
     char* calendartxt_path;
 } Flags;
 
@@ -36,7 +48,7 @@ int parse_date(char* date, int* year, int* month, int* day);
 
 int update_calendartxt(char* ics_file);
 
-int main(int argc, char** argv) {
+int cli_main(int argc, char** argv) {
     Flags cli_flags = parse_cli_flags(&argc, argv);
 
     if (cli_flags.calendartxt_path != NULL) {
@@ -46,7 +58,7 @@ int main(int argc, char** argv) {
     notify_init("Calenter");
 
 
-    if (cli_flags.redirect_logs) {
+    if (REDIRECT_LOGS(cli_flags.bool_flags)) {
         headless = true;
     } else {
         headless = false;
@@ -55,6 +67,14 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         print_usage();
         return 1;
+    }
+
+    if (
+        SILENCE(cli_flags.bool_flags) && (
+        freopen("/dev/null", "w", stdout) == NULL ||
+        freopen("/dev/null", "w", stderr) == NULL)
+    ) {
+        printf("WARNING: --silence flag passed but failed to redirect stdout and stderr.");
     }
 
     Config config = read_config();
@@ -154,11 +174,11 @@ int handle_gcal_cmd(int argc, char** argv) {
     if (argc < 3) return 1;
 
     if (strcmp(argv[2], "auth") == 0) {
-        GCal* gcal = new_gcal_client();
+        GCal* gcal = new_gcal_client(false);
         gcal_authenticate(gcal);
         destroy_gcal_client(gcal);
     } else if (strcmp(argv[2], "list") == 0) {
-        GCal* gcal = new_gcal_client(); 
+        GCal* gcal = new_gcal_client(false); 
 
         char* calendar_id = NULL;
         if (gcal_get_calendar_id(gcal, &calendar_id) != 0) {
@@ -173,7 +193,7 @@ int handle_gcal_cmd(int argc, char** argv) {
 
         destroy_gcal_client(gcal);
     } else if (strcmp(argv[2], "insert") == 0) {
-        GCal* gcal = new_gcal_client();
+        GCal* gcal = new_gcal_client(false);
 
         time_t raw_time = time(NULL);
 
@@ -197,7 +217,8 @@ void print_usage() {
     printf("  get-events        prints the events for the provided date (yyyy-mm-dd)\n");
     printf("  update-calendar   updates calendar.txt using the provided ics file\n");
     printf("  parse-ics         prints the list of events in the provided ics file\n");
-    printf("  broadcast         opens a prompt that sends whatever is typed over the broadcast socket.\n\n");
+    printf("  broadcast         opens a prompt that sends whatever is typed over the broadcast socket.\n");
+    printf("  gcal              Google Calendar commands.\n\n");
     printf("Flags:\n\n");
     printf("  -r, --redirect-logs             redirects debug_log calls to stdout instead of debug.log\n");
     printf("  -c, --calendartxt-path <path>   the calendar.txt file to use\n\n");
@@ -230,7 +251,12 @@ Flags parse_cli_flags(int* argc, char** argv) {
             strcmp(argv[i], "-r") == 0 ||
             strcmp(argv[i], "--redirect-logs") == 0
         ) {
-            cli_flags.redirect_logs = true;
+            SET_REDIRECT_LOGS(cli_flags.bool_flags);
+        } else if (
+            strcmp(argv[i], "-s") == 0 ||
+            strcmp(argv[i], "--silence") == 0
+        ) {
+            SET_SILENCE(cli_flags.bool_flags);
         } else if (
             (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--calendartxt-path") == 0) &&
             i < *argc - 1

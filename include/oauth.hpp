@@ -1,5 +1,6 @@
 #pragma once
 
+#include <exception>
 #include <future>
 #include <string>
 #include <thread>
@@ -10,22 +11,40 @@
 #include <boost/asio/ip/tcp.hpp>
 
 #include "http.hpp"
-#include "types.h"
 
 namespace net = boost::asio;
 namespace json = boost::json;
 using tcp = net::ip::tcp;
 
 struct oauth2_tokens {
-    char*   access_token;
-    long    expires_at; // Seconds since unix epoch
-    char*   token_type;
-    Array*  scope;
-    char*   refresh_token;
+    std::string   access_token;
+    long          expires_at; // Seconds since unix epoch
+    std::string   token_type;
+    std::string   refresh_token;
+    std::vector<std::string>  scope;
 };
 
 
-void destroy_oauth2_tokens(struct oauth2_tokens* tokens);
+// My custom cout stream that allows the stream to be silenced. Usefull
+// when working with TUIs.
+class s_stream {
+    private:
+        bool silence_stdout_ = true;
+
+    public:
+        s_stream() {}
+
+        s_stream(bool silence) { 
+            silence_stdout_ = silence;
+        }
+
+        template<typename T>
+        s_stream& operator<<(const T& value) {
+            if (silence_stdout_) return *this;
+            std::cout << value;
+            return *this;
+        }
+};
 
 
 class Pkce {
@@ -57,6 +76,8 @@ class CredentialStore {
     private:
         std::string path_;
 
+        void store(std::string tokens);
+
     public:
         CredentialStore();
         CredentialStore(std::string path);
@@ -64,7 +85,6 @@ class CredentialStore {
         struct oauth2_tokens get();
 
         void store(struct oauth2_tokens tokens);
-        void store(std::string tokens);
 
         static struct oauth2_tokens parse_oauth2_resp(json::value json);
 };
@@ -95,7 +115,11 @@ class OAuth {
 
         std::promise<struct oauth2_tokens> tokens_promise_;
         std::future<struct oauth2_tokens> tokens_future_;
-        bool oauth2_error_occured_ = false;
+        std::exception_ptr error_;
+
+        s_stream cout_;
+
+        void basic_setup();
 
         /**
          * Appends the url encoded query params sent to the
@@ -127,7 +151,8 @@ class OAuth {
 
     public:
         OAuth();
-        OAuth(HttpClient& client, CredentialStore& cred_store);
+        OAuth(bool silence);
+        OAuth(HttpClient& client, CredentialStore& cred_store, bool silence);
 
         struct oauth2_tokens get_credentials();
 
@@ -143,6 +168,20 @@ class OAuth {
 /**
  * OAuth Exception types
  * */
+
+// This is a generic OAuth exception.
+class OAuthException : public std::exception {
+    private:
+        std::string msg_;
+
+    public: 
+        explicit OAuthException(std::string msg) : msg_(std::move(msg)) {}
+
+        const char* what() const noexcept override {
+            return msg_.c_str();
+        }
+};
+
 class ExpiredException : public std::exception {
     private:
         std::string message_;
@@ -152,5 +191,17 @@ class ExpiredException : public std::exception {
 
         const char* what() const noexcept override {
             return message_.c_str();
+        }
+};
+
+class TimeoutException : public std::exception {
+    private:
+        std::string msg_;
+
+    public:
+        explicit TimeoutException(std::string msg) : msg_(std::move(msg)) {}
+
+        const char* what() const noexcept override {
+            return msg_.c_str();
         }
 };

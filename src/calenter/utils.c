@@ -1,3 +1,4 @@
+#include <libnotify/notification.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -196,4 +197,14 @@ char* dump_ui_state(Window** windows, int active_window_id) {
     calendar_json = NULL;
 
     return json_buffer;
+}
+
+void send_notification(const char* msg) {
+    NotifyNotification* noti = notify_notification_new(
+        "Calenter",
+        msg,
+        "" // TODO: probably want to add icon here
+    );
+    notify_notification_show(noti, NULL);
+    g_object_unref(G_OBJECT(noti));
 }

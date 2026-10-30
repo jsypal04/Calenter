@@ -1,6 +1,10 @@
 #ifndef CALENDARTXT_H
 #define CALENDARTXT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 #include "types.h"
 
@@ -100,6 +104,13 @@ void format_calendartxt_date(char* buffer, int year, int month, int day);
  */
 void format_time(char* buffer, int hour, int min);
 
+/* 
+ * Allocate at least 11 bytes for this. 
+ * */
+void fmt_ISO_8601_date(char* buffer, struct tm* t);
+
+/* I recomend making sure buffer has size 32 or so. */
+void fmt_ISO_8601_timestamp(char* buffer, struct tm* t, bool tz);
 
 /**
  * Utility functions
@@ -107,5 +118,11 @@ void format_time(char* buffer, int hour, int min);
 
 // Removes leading and trailing whitespace in place.
 void trim(char* str);
+
+void to_lower(char* str);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
