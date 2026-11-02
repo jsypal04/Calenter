@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdint.h>
 #include <ncurses.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,15 +9,18 @@
 
 #include "calenter.h"
 #include "calendartxt.h"
+#include "config.h"
 #include "debug.h"
 
 #define MODAL_WIDTH_BREAKPOINT 85
-#define NUM_INPUTS 7
 
 enum input_tag {
     HOUR,
     MIN,
     SUFFIX,
+    E_HOUR,
+    E_MIN,
+    E_SUFFIX,
     SUMMARY,
     FREQ_SELECT,
     INTERVAL,
@@ -26,16 +30,21 @@ enum input_tag {
 typedef struct _input_field {
     WINDOW* win;
     int index;
+    enum input_tag tag;
     char content[2048];
 } InputField;
 
 typedef struct _input_fields {
     bool           all_day;
-    enum input_tag active_input;
+    // active_input is an index into the input_cycle
+    uint8_t        active_input;
     enum FREQ      freq_select;
     InputField     hour;
     InputField     min;
     InputField     suffix;
+    InputField     e_hour;
+    InputField     e_min;
+    InputField     e_suffix;
     InputField     summary;
     InputField     interval;
     InputField     until;
@@ -43,20 +52,34 @@ typedef struct _input_fields {
 
 
 void set_byte(Inputs* inputs, char ch);
-void delete_byte(Inputs* inputs);
-void render_input_fields(WINDOW* win, Inputs* inputs);
+void delete_byte(InputField* input, char ch, char* def);
+void render_input_fields(WINDOW* win, Inputs* inputs, Config config);
 void init_inputs(Inputs* inputs, WINDOW* modal, int width);
 void render_freq_select_menu(WINDOW* win, Inputs* inputs, int y, int x, bool active);
 void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x, int lines);
 void render_input(WINDOW* win, int y, int x, bool active, char* str);
+void render_time_input(InputField field, enum input_tag active_input);
+void set_input_cycle(uint16_t total_num_inputs);
+
+int set_time_byte(InputField* field, char ch);
+
+uint8_t index_of_input(enum input_tag input, uint16_t total_num_inputs);
 
 char* map_freq(enum FREQ freq);
 
 int height, width;
+enum input_tag input_cycle[10];
 
-struct event add_event_modal(Window** windows, struct event* event) {
+struct event add_event_modal(
+    Window** windows, 
+    struct event* event, 
+    Config config
+) {
     height = 3 * LINES / 4;
     width = COLS / 2;
+
+    uint16_t total_num_inputs = config.send_to_gcal ? 10 : 7;
+    set_input_cycle(total_num_inputs);
 
     if (width < MODAL_WIDTH_BREAKPOINT) {
         width = COLS - 2;
@@ -83,9 +106,11 @@ struct event add_event_modal(Window** windows, struct event* event) {
         char* hour_fmt_str = (hour < 10) ? "0%d" : "%d";
         char* min_fmt_str = (event->datetime.tm_min < 10) ? "0%d" : "%d";
 
+        uint8_t index_of_summary = index_of_input(SUMMARY, total_num_inputs);
+
         if (event->all_day) {
             inputs.all_day = true;
-            inputs.active_input = SUMMARY;
+            inputs.active_input = index_of_summary;
         } else {
             sprintf(inputs.hour.content, hour_fmt_str, hour);
             sprintf(inputs.min.content, min_fmt_str, event->datetime.tm_min);
@@ -99,11 +124,9 @@ struct event add_event_modal(Window** windows, struct event* event) {
 
         inputs.freq_select = event->rrule.freq;
         // TODO: populate interval
-    } else {
-        strcpy(inputs.suffix.content, "AM");
-    }
+    } 
 
-    render_input_fields(modal, &inputs);
+    render_input_fields(modal, &inputs, config);
     wrefresh(modal);
     refresh_controls(MODAL_WIN);
 
@@ -112,55 +135,59 @@ struct event add_event_modal(Window** windows, struct event* event) {
         switch (ch) {
         // Bindings for the time fields
         case 'p':
-            if (inputs.active_input != SUFFIX)
-                goto user_default;
+            if (inputs.active_input == SUFFIX) {
+                strcpy(inputs.suffix.content, "PM");
+            } else if (inputs.active_input == E_SUFFIX) {
+                strcpy(inputs.e_suffix.content, "PM");
+            }
 
-            strcpy(inputs.suffix.content, "PM");
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             goto user_default;
 
         case 'a':
-            if (inputs.active_input != SUFFIX)
-                goto user_default;
+            if (inputs.active_input == SUFFIX) {
+                strcpy(inputs.suffix.content, "AM");
+            } else if (inputs.active_input == E_SUFFIX) {
+                strcpy(inputs.e_suffix.content, "AM");
+            }
 
-            strcpy(inputs.suffix.content, "AM");
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             goto user_default;
 
         // Bindings for the frequency select dropdown
         case KEY_DOWN:
-            if (inputs.active_input != FREQ_SELECT) break;
+            if (input_cycle[inputs.active_input] != FREQ_SELECT) break;
             inputs.freq_select = (inputs.freq_select + 1) % 7;
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             break;
 
         case KEY_UP:
-            if (inputs.active_input != FREQ_SELECT) break;
+            if (input_cycle[inputs.active_input] != FREQ_SELECT) break;
             inputs.freq_select =
                 inputs.freq_select != 0 ?
                 inputs.freq_select - 1 : 6;
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             break;
 
         // General modal bindings
         case '\t': {
             int num_inputs =
-                inputs.freq_select != NONE ? NUM_INPUTS : NUM_INPUTS - 2;
+                inputs.freq_select != NONE ? total_num_inputs : total_num_inputs - 2;
 
             if (inputs.all_day) {
                 inputs.active_input =
                     inputs.active_input < num_inputs - 1 ?
-                    inputs.active_input + 1 : 3;
+                    inputs.active_input + 1 : index_of_input(SUMMARY, total_num_inputs);
             } else {
                 inputs.active_input = (inputs.active_input + 1) % num_inputs;
             }
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             break;
         }
 
         case KEY_BTAB: {
             int num_inputs =
-                inputs.freq_select != NONE ? NUM_INPUTS : NUM_INPUTS - 2;
+                inputs.freq_select != NONE ? total_num_inputs : total_num_inputs - 2;
 
             if (inputs.all_day) {
                 inputs.active_input =
@@ -173,26 +200,35 @@ struct event add_event_modal(Window** windows, struct event* event) {
                     inputs.active_input - 1 :
                     num_inputs - 1;
             }
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             break;
         }
 
         case CTRL('a'):
             inputs.all_day = !inputs.all_day;
-            inputs.active_input = SUMMARY;
+            inputs.active_input = index_of_input(SUMMARY, total_num_inputs);
             mvwprintw(modal, 3, 3, "        ");
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
             break;
 
         case KEY_BACKSPACE:
-            delete_byte(&inputs);
-            render_input_fields(modal, &inputs);
+            switch (input_cycle[inputs.active_input]) {
+                case HOUR: delete_byte(&inputs.hour, ' ', NULL); break;
+                case MIN:  delete_byte(&inputs.min, ' ', NULL); break;
+                case E_HOUR:  delete_byte(&inputs.e_hour, ' ', NULL); break;
+                case E_MIN:  delete_byte(&inputs.e_min, ' ', NULL); break;
+                case SUMMARY: delete_byte(&inputs.summary, ' ', NULL); break;
+                case UNTIL: delete_byte(&inputs.until, ' ', "yyyy-mm-dd"); break;
+                case INTERVAL: delete_byte(&inputs.interval, '\0', NULL); break;
+                default: break;
+            }
+            render_input_fields(modal, &inputs, config);
             break;
 
         user_default:
         default:
             set_byte(&inputs, ch);
-            render_input_fields(modal, &inputs);
+            render_input_fields(modal, &inputs, config);
         }
 
         ch = wgetch(modal);
@@ -257,23 +293,48 @@ struct event add_event_modal(Window** windows, struct event* event) {
         refresh_win(windows[i], false);
     }
 
+    struct tm* end = NULL;
+
+    if (config.send_to_gcal) {
+        end = malloc(sizeof(struct tm));
+        memset(end, 0, sizeof(struct tm));
+
+        end->tm_hour = atoi(inputs.e_hour.content);
+        end->tm_min  = atoi(inputs.e_min.content);
+        
+        if (
+            strcmp(inputs.e_suffix.content, "PM") == 0 && 
+            end->tm_hour != 12
+        ) {
+            end->tm_hour += 12;
+        } else if (
+            strcmp(inputs.e_suffix.content, "AM") == 0 &&
+            end->tm_hour == 12
+        ) {
+            end->tm_hour = 0;
+        }
+    }
+    new_event.end = end;
+
     return new_event;
 }
 
 void set_byte(Inputs* inputs, char ch) {
-    switch (inputs->active_input) {
-    case HOUR:
-        if (inputs->hour.index >= 2 || ch < 48 || ch > 57) return;
+    switch (input_cycle[inputs->active_input]) {
+    case E_HOUR:
+        if (set_time_byte(&inputs->e_hour, ch) != 0) return;
+        break;
 
-        inputs->hour.content[inputs->hour.index] = ch;
-        inputs->hour.index++;
+    case HOUR:
+        if (set_time_byte(&inputs->hour, ch) != 0) return;
+        break;
+
+    case E_MIN:
+        if (set_time_byte(&inputs->e_min, ch) != 0) return;
         break;
 
     case MIN:
-        if (inputs->min.index >= 2 || ch < 48 || ch > 57) return;
-
-        inputs->min.content[inputs->min.index] = ch;
-        inputs->min.index++;
+        if (set_time_byte(&inputs->min, ch) != 0) return;
         break;
 
     case SUMMARY:
@@ -307,67 +368,35 @@ void set_byte(Inputs* inputs, char ch) {
     }
 }
 
-void delete_byte(Inputs* inputs) {
-    switch (inputs->active_input) {
-    case HOUR:
-        if (inputs->hour.index > 0) inputs->hour.index--;
-        inputs->hour.content[inputs->hour.index] = ' ';
-        break;
-
-    case MIN:
-        if (inputs->min.index > 0) inputs->min.index--;
-        inputs->min.content[inputs->min.index] = ' ';
-        break;
-
-    case SUMMARY:
-        if (inputs->summary.index > 0) inputs->summary.index--;
-        inputs->summary.content[inputs->summary.index] = ' ';
-        break;
-
-    case INTERVAL:
-        if (inputs->interval.index > 0) inputs->interval.index--;
-        inputs->interval.content[inputs->interval.index] = '\0';
-        break;
-
-    case UNTIL:
-        if (inputs->until.index > 0) {
-            inputs->until.index--;
-            inputs->until.content[inputs->until.index] = ' ';
-        }
-
-        if (inputs->until.index == 0)
-            strcpy(inputs->until.content, "yyyy-mm-dd");
-
-        break;
-
-    default: break;
+// NOTE: using def to set a default value when the buffer is blank is dangerous.
+// The default value is copied with no buffer size check.
+void delete_byte(InputField* input, char ch, char* def) {
+    if (def != NULL && input->index == 1) {
+        strcpy(input->content, def);
+        return;
     }
+    if (input->index > 0) input->index--;
+    input->content[input->index] = ' ';
 }
 
-void render_input_fields(WINDOW* win, Inputs* inputs) {
+void render_input_fields(WINDOW* win, Inputs* inputs, Config config) {
+    // Erase the end time fields
+    mvwprintw(win, 2, 25, "         ");
+    mvwprintw(win, 3, 25, "         ");
+
     mvwprintw(win, 2, 3, "Time:");
     if (!inputs->all_day) {
-        mvwprintw(inputs->hour.win, 0, 0, "%s", inputs->hour.content);
-        if (inputs->active_input == HOUR) {
-            wbkgd(inputs->hour.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
-        } else {
-            wbkgd(inputs->hour.win, COLOR_PAIR(INPUT_FIELD_PAIR));
-        }
-
+        render_time_input(inputs->hour, inputs->active_input);
         mvwprintw(win, 3, 5, ":");
+        render_time_input(inputs->min, inputs->active_input);
+        render_time_input(inputs->suffix, inputs->active_input);
 
-        mvwprintw(inputs->min.win, 0, 0, "%s", inputs->min.content);
-        if (inputs->active_input == MIN) {
-            wbkgd(inputs->min.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
-        } else {
-            wbkgd(inputs->min.win, COLOR_PAIR(INPUT_FIELD_PAIR));
-        }
-
-        mvwprintw(inputs->suffix.win, 0, 0, "%s", inputs->suffix.content);
-        if (inputs->active_input == SUFFIX) {
-            wbkgd(inputs->suffix.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
-        } else {
-            wbkgd(inputs->suffix.win, COLOR_PAIR(INPUT_FIELD_PAIR));
+        if (config.send_to_gcal) {
+            mvwprintw(win, 2, 25, "End Time:");
+            render_time_input(inputs->e_hour, inputs->active_input);
+            mvwprintw(win, 3, 27, ":");
+            render_time_input(inputs->e_min, inputs->active_input);
+            render_time_input(inputs->e_suffix, inputs->active_input);
         }
     } else {
         werase(inputs->hour.win);
@@ -378,7 +407,7 @@ void render_input_fields(WINDOW* win, Inputs* inputs) {
 
     mvwprintw(win, 6, 3, "Summary (2000 character limit):");
     mvwprintw(inputs->summary.win, 0, 0, "%s", inputs->summary.content);
-    if (inputs->active_input == SUMMARY) {
+    if (input_cycle[inputs->active_input] == SUMMARY) {
         wbkgd(inputs->summary.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
     } else {
         wbkgd(inputs->summary.win, COLOR_PAIR(INPUT_FIELD_PAIR));
@@ -394,7 +423,7 @@ void render_input_fields(WINDOW* win, Inputs* inputs) {
     }
 
     mvwprintw(win, 19, 3, "Repeat");
-    render_freq_select_menu(win, inputs, 19, 10, inputs->active_input == FREQ_SELECT);
+    render_freq_select_menu(win, inputs, 19, 10, input_cycle[inputs->active_input] == FREQ_SELECT);
 
     if (inputs->freq_select != NONE)
         render_rrule_params(win, inputs, 19, 21, lines);
@@ -410,17 +439,35 @@ void render_input_fields(WINDOW* win, Inputs* inputs) {
 
 void init_inputs(Inputs* inputs, WINDOW* modal, int width) {
     memset(inputs, 0, sizeof(Inputs));
-    inputs->active_input = HOUR;
+    inputs->active_input = 0;
     inputs->all_day = false;
 
     strcpy(inputs->hour.content, "  ");
     strcpy(inputs->min.content, "  ");
+    strcpy(inputs->e_hour.content, "  ");
+    strcpy(inputs->e_min.content, "  ");
 
-    inputs->hour.win    = derwin(modal, 1, 2, 3, 3);
-    inputs->min.win     = derwin(modal, 1, 2, 3, 6);
-    inputs->suffix.win  = derwin(modal, 1, 2, 3, 9);
-    inputs->summary.win = derwin(modal, 10, width - 6, 7, 3);
-    inputs->freq_select = NONE;
+    strcpy(inputs->suffix.content, "AM");
+    strcpy(inputs->e_suffix.content, "AM");
+
+    inputs->hour.win      = derwin(modal, 1, 2, 3, 3);
+    inputs->min.win       = derwin(modal, 1, 2, 3, 6);
+    inputs->suffix.win    = derwin(modal, 1, 2, 3, 9);
+    inputs->e_hour.win    = derwin(modal, 1, 2, 3, 25);
+    inputs->e_min.win     = derwin(modal, 1, 2, 3, 28);
+    inputs->e_suffix.win  = derwin(modal, 1, 2, 3, 31);
+    inputs->summary.win   = derwin(modal, 10, width - 6, 7, 3);
+    inputs->freq_select   = NONE;
+
+    inputs->hour.tag        = HOUR;
+    inputs->min.tag         = MIN;
+    inputs->suffix.tag      = SUFFIX;
+    inputs->e_hour.tag      = E_HOUR;
+    inputs->e_min.tag       = E_MIN;
+    inputs->e_suffix.tag    = E_SUFFIX;
+    inputs->summary.tag     = SUMMARY;
+    inputs->interval.tag    = INTERVAL;
+    inputs->until.tag       = UNTIL;
 
     inputs->interval.win = NULL;
     strcpy(inputs->interval.content, "1");
@@ -478,7 +525,7 @@ void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x, int lines) {
     mvwprintw(win, y, x, "every");
     offset += strlen("every") + 1;
     render_input(win, y, x + offset,
-        inputs->active_input == INTERVAL, inputs->interval.content);
+        input_cycle[inputs->active_input] == INTERVAL, inputs->interval.content);
     offset += strlen(inputs->interval.content) + 2;
     mvwprintw(win, y, x + offset, "%s", map_freq_units(inputs->freq_select));
     offset =
@@ -493,7 +540,7 @@ void render_rrule_params(WINDOW* win, Inputs* inputs, int y, int x, int lines) {
 
     mvwprintw(win, y, x + offset, "until");
     offset += strlen("until") + 1;
-    render_input(win, y, x + offset, inputs->active_input == UNTIL,
+    render_input(win, y, x + offset, input_cycle[inputs->active_input] == UNTIL,
         inputs->until.content);
 }
 
@@ -511,4 +558,50 @@ void render_input(WINDOW* win, int y, int x, bool active, char* str) {
     } else {
         wattroff(win, COLOR_PAIR(INPUT_FIELD_PAIR));
     }
+}
+
+void render_time_input(InputField field, enum input_tag active_input) {
+    mvwprintw(field.win, 0, 0, "%s", field.content);
+    if (input_cycle[active_input] == field.tag) {
+        wbkgd(field.win, COLOR_PAIR(ACTIVE_INPUT_FIELD_PAIR));
+    } else {
+        wbkgd(field.win, COLOR_PAIR(INPUT_FIELD_PAIR));
+    }
+}
+
+int set_time_byte(InputField* field, char ch) {
+    if (field->index >= 2 || ch < 48 || ch > 57) return 1;
+
+    field->content[field->index] = ch;
+    field->index++;
+    return 0;
+}
+
+void set_input_cycle(uint16_t total_num_inputs) {
+    input_cycle[0] = HOUR;
+    input_cycle[1] = MIN;
+    input_cycle[2] = SUFFIX;
+    
+    uint8_t i = 3;
+    if (total_num_inputs == 10) {
+        input_cycle[3] = E_HOUR;
+        input_cycle[4] = E_MIN;
+        input_cycle[5] = E_SUFFIX;
+        i = 6;
+    }
+
+    input_cycle[i]     = SUMMARY;
+    input_cycle[i + 1] = FREQ_SELECT;
+    input_cycle[i + 2] = INTERVAL;
+    input_cycle[i + 3] = UNTIL;
+}
+
+uint8_t index_of_input(enum input_tag input, uint16_t total_num_inputs) {
+    uint8_t index;
+    for (int i = 0; i < total_num_inputs; i++) {
+        if (input_cycle[i] != input) continue;
+        index = i;
+        break;
+    }
+    return index;
 }

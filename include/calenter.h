@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <ncurses.h>
 
+#include "config.h"
 #include "types.h"
 
 #define DEBUG
@@ -101,7 +102,11 @@ char* get_month_name(int month);
 int get_days_in_month(int month);
 struct tm get_day_info(int year, int month, int day);
 
-struct event add_event_modal(Window** windows, struct event* event);
+struct event add_event_modal(
+    Window** windows, 
+    struct event* event, 
+    Config config
+);
 
 bool verify_date(char* date);
 

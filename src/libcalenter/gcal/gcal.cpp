@@ -1,4 +1,5 @@
 #include <cstring>
+#include <ctime>
 #include <exception>
 #include <optional>
 #include <sstream>
@@ -163,18 +164,26 @@ void GoogleCalendar::insert_event(struct event event) {
     char     key[16] = "\0";
     char s_value[32] = "\0";
     char e_value[32] = "\0";
-
+    
     if (event.all_day) {
         strncpy(key, "date", 15);
         fmt_ISO_8601_date(s_value, &event.datetime);
-        fmt_ISO_8601_date(e_value, &event.datetime);
+        if (event.end != NULL) {
+            fmt_ISO_8601_date(e_value, event.end);
+        } else {
+            fmt_ISO_8601_date(e_value, &event.datetime);
+        }
     } else {
         strncpy(key, "dateTime", 15);
         fmt_ISO_8601_timestamp(s_value, &event.datetime, true);
-
-        struct tm end_tm = event.datetime;
-        end_tm.tm_hour += 1;
-        fmt_ISO_8601_timestamp(e_value, &end_tm, true);
+        if (event.end != NULL) {
+            fmt_ISO_8601_timestamp(e_value, event.end, true);
+        } else {
+            struct tm end = event.datetime;
+            end.tm_hour += 1;
+            mktime(&end);
+            fmt_ISO_8601_timestamp(e_value, &end, true);
+        }
     }
 
     json::value start = {
@@ -182,7 +191,7 @@ void GoogleCalendar::insert_event(struct event event) {
         {"timezone", event.datetime.tm_zone}
     };
 
-    json::value end = {
+    json::value json_end = {
         {key, e_value},
         {"timezone", event.datetime.tm_zone}
     };
@@ -190,7 +199,7 @@ void GoogleCalendar::insert_event(struct event event) {
     json::value body = {
         {"summary", event.summary},
         {"start", start},
-        {"end", end}
+        {"end", json_end}
     };
 
     http_client_.post(url);

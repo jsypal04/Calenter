@@ -382,10 +382,12 @@ void handle_key_press(Window** active_win_ref, int key, Config config) {
 
                 struct event new_event;
                 if (cur_selection == length) {
-                    new_event = add_event_modal(windows, NULL);
+                    new_event = add_event_modal(windows, NULL, config);
                 } else {
                     new_event = add_event_modal(windows,
-                        active_win->widgets[sched_index].widget.schedule.events.events + cur_selection);
+                        active_win->widgets[sched_index].widget.schedule.events.events + cur_selection,
+                        config
+                    );
                     if (new_event.summary != NULL) {
                         delete_event(active_win->widgets[sched_index].widget.schedule.events.events[cur_selection]);
                     }
@@ -429,12 +431,19 @@ void handle_key_press(Window** active_win_ref, int key, Config config) {
 
                 render_schedule(active_win, true);
                 if (config.send_to_gcal) {
+                    new_event.end->tm_year = new_event.datetime.tm_year;
+                    new_event.end->tm_mon  = new_event.datetime.tm_mon;
+                    new_event.end->tm_mday = new_event.datetime.tm_mday;
+                    mktime(new_event.end);
                     int r = gcal_insert_event(gcal_client, new_event);
                     if (r != 0) {
                         send_notification("Failed to send event to Google Calendar");
                     }
+                    if (new_event.end != NULL) {
+                        free(new_event.end);
+                        new_event.end = NULL;
+                    }
                 }
-
                 break;
             }
         }

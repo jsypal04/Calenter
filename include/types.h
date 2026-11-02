@@ -69,6 +69,8 @@ struct rrule {
 struct event {
     bool all_day;
     struct tm datetime;
+    // This is for sending to google calendar. Most of the time it is NULL.
+    struct tm* end;
     char* summary;
     struct rrule rrule;
 };
